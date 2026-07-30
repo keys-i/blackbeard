@@ -1,0 +1,52 @@
+name: Benchmarks
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "31 20 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: cli/go.mod
+          cache: false
+      - name: Run fixed-fixture benchmarks
+        run: go test -run '^$' -bench . -benchmem -count 6 ./... | tee benchmark.txt
+      - name: Build stripped binary
+        run: go build -trimpath -ldflags="-s -w" -o blackbeard ./cmd/blackbeard
+      - name: Write benchmark tables
+        run: |
+          {
+            echo "## Overall benchmarks"
+            echo
+            echo "| Scenario | ns/op | B/op | allocs/op |"
+            echo "| --- | ---: | ---: | ---: |"
+            awk '/^BenchmarkOverall/ {name=$1; sub(/-[0-9]+$/, "", name); printf "| %s | %s | %s | %s |\n", name, $3, $5, $7}' benchmark.txt
+            echo
+            echo "| Artifact | Bytes |"
+            echo "| --- | ---: |"
+            echo "| blackbeard | $(stat -c %s blackbeard) |"
+            echo
+            echo "## Component benchmarks"
+            echo
+            echo "| Component | ns/op | B/op | allocs/op |"
+            echo "| --- | ---: | ---: | ---: |"
+            awk '/^Benchmark/ && !/^BenchmarkOverall/ {name=$1; sub(/-[0-9]+$/, "", name); printf "| %s | %s | %s | %s |\n", name, $3, $5, $7}' benchmark.txt
+            echo
+            echo "> Shared runners are noisy. These figures are informational, not a merge gate."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: benchmark-${{ github.sha }}
+          path: cli/benchmark.txt
+          retention-days: 30

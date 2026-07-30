@@ -1,0 +1,34 @@
+name: Bug
+description: Report reproducible incorrect behaviour.
+title: "fix: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include private tracker URLs, credentials, or copyrighted content.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Include the smallest reproducible command and sanitized output.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: blackbeard version
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Operating system and terminal
+    validations:
+      required: true

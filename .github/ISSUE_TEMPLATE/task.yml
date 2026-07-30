@@ -1,0 +1,19 @@
+name: Task
+description: Track maintenance, research, or measured optimization work.
+title: "chore: "
+labels: ["task"]
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Done when
+      description: State the verifiable outcome.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Name the check, benchmark, or artifact that proves completion.
+    validations:
+      required: true

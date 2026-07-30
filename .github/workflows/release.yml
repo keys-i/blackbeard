@@ -1,0 +1,86 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      created: ${{ steps.release.outputs.release_created }}
+      tag: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@0dfd8538845b8e92600d271a895a5372865d4062 # v5
+        with:
+          config-file: .github/release-please-config.json
+          manifest-file: .github/.release-please-manifest.json
+
+  assets:
+    needs: release-please
+    if: needs.release-please.outputs.created == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.sum
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          TAG: ${{ needs.release-please.outputs.tag }}
+        run: |
+          suffix=""
+          if [ "$GOOS" = windows ]; then suffix=".exe"; fi
+          name="blackbeard-${TAG#v}-${GOOS}-${GOARCH}${suffix}"
+          go build -trimpath -ldflags="-s -w -X main.version=$TAG" -o "$name" ./cmd/blackbeard
+          sha256sum "$name" > "$name.sha256"
+      - name: Upload release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release-please.outputs.tag }}
+        run: gh release upload "$TAG" blackbeard-* --clobber
+
+  codename:
+    needs: [release-please, assets]
+    if: needs.release-please.outputs.created == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add deterministic release codename
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release-please.outputs.tag }}
+        run: |
+          version="${TAG#v}"
+          IFS=. read -r major minor patch <<EOF
+          $version
+          EOF
+          verbs=(Boarding Charting Hoisting Racing Sailing Tracking)
+          animals=(Albatross Barracuda Kraken Macaw Narwhal Orca)
+          verb="${verbs[$(((major + minor) % ${#verbs[@]}))]}"
+          animal="${animals[$(((minor + patch) % ${#animals[@]}))]}"
+          gh release edit "$TAG" --title "$verb $animal · $TAG"

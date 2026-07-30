@@ -1,0 +1,26 @@
+name: Feature
+description: Propose a focused, lawful capability.
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: User need
+      description: What concrete problem is not covered today?
+    validations:
+      required: true
+  - type: textarea
+    id: smallest
+    attributes:
+      label: Smallest useful change
+      description: Explain why existing commands or configuration do not cover it.
+    validations:
+      required: true
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Scope
+      options:
+        - label: This does not add a piracy index or bypass access controls.
+          required: true
