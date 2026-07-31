@@ -30,7 +30,6 @@ jobs:
         with:
           version: v1.28.0
           advanced-security: true
-          annotations: true
 
   licences:
     name: Licence inventory
@@ -111,9 +110,10 @@ jobs:
             target="${declaration#func }"
             package="./$(dirname "$file")"
             go test "$package" -run '^$' -fuzz "^${target}$" -fuzztime=10s
-          done < <(rg -H --no-line-number -o 'func Fuzz[A-Za-z0-9_]+' --glob '*_test.go' . || true)
+          done < <(grep -RHEo --include='*_test.go' 'func Fuzz[A-Za-z0-9_]+' .)
           if [[ "$found" == 0 ]]; then
-            echo "No hostile-input parser has landed in the scaffold yet."
+            echo "No Go fuzz targets found." >&2
+            exit 1
           fi
 
   scorecard:
