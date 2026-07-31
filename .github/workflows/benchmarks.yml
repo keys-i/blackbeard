@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   benchmark:
-    name: Controlled benchmark report
+    name: Benchmark report
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'benchmark')
     runs-on: ubuntu-latest
     steps:

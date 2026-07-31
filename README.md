@@ -1,7 +1,8 @@
 # Blackbeard
 
 [![Checks](https://github.com/keys-i/blackbeard/actions/workflows/checks.yml/badge.svg)](https://github.com/keys-i/blackbeard/actions/workflows/checks.yml)
-[![Quality](https://github.com/keys-i/blackbeard/actions/workflows/quality.yml/badge.svg)](https://github.com/keys-i/blackbeard/actions/workflows/quality.yml)
+[![Security](https://github.com/keys-i/blackbeard/actions/workflows/security.yml/badge.svg)](https://github.com/keys-i/blackbeard/actions/workflows/security.yml)
+[![QA](https://github.com/keys-i/blackbeard/actions/workflows/qa.yml/badge.svg)](https://github.com/keys-i/blackbeard/actions/workflows/qa.yml)
 [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Blackbeard is a fast, scriptable BitTorrent CLI and TUI for natural-language

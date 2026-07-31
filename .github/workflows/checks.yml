@@ -46,8 +46,9 @@ jobs:
           test -f .github/release/release-please-config.json
           test -f .github/release/release-please-manifest.json
           test -f .github/workflows/checks.yml
-          test -f .github/workflows/quality.yml
-          test -f .github/workflows/benchmark.yml
+          test -f .github/workflows/security.yml
+          test -f .github/workflows/benchmarks.yml
+          test -f .github/workflows/qa.yml
           test -f .github/workflows/release.yml
           test ! -d cli
           test ! -d .config

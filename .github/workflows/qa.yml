@@ -1,146 +1,21 @@
-name: Quality
+name: QA
 
 on:
   pull_request:
   push:
     branches: [main]
   schedule:
-    - cron: "17 20 * * 1"
+    - cron: "41 20 * * 1"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: quality-${{ github.ref }}
+  group: qa-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  codeql:
-    name: CodeQL (${{ matrix.language }})
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      security-events: write # Upload CodeQL SARIF.
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - language: go
-            build-mode: autobuild
-          - language: actions
-            build-mode: none
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: github/codeql-action/init@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
-        with:
-          languages: ${{ matrix.language }}
-          build-mode: ${{ matrix.build-mode }}
-          queries: security-extended
-      - if: matrix.build-mode == 'autobuild'
-        uses: github/codeql-action/autobuild@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
-      - uses: github/codeql-action/analyze@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
-        with:
-          category: /language:${{ matrix.language }}
-
-  dependency-review:
-    name: Dependency review
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
-        with:
-          fail-on-severity: moderate
-          fail-on-scopes: runtime, unknown
-          deny-licenses: AGPL-1.0-only, AGPL-1.0-or-later, AGPL-3.0-only, AGPL-3.0-or-later, GPL-1.0-only, GPL-1.0-or-later, GPL-2.0-only, GPL-2.0-or-later, GPL-3.0-only, GPL-3.0-or-later
-
-  govulncheck:
-    name: Reachable vulnerabilities
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: golang/govulncheck-action@032d45514ae346b1db93c04b0c90b841c370344f # v1.1.0
-        with:
-          go-version-file: src/go.mod
-          go-package: ./...
-          work-dir: src
-
-  gosec:
-    name: Targeted gosec
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      security-events: write # Upload gosec SARIF.
-    defaults:
-      run:
-        working-directory: src
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: src/go.mod
-          cache-dependency-path: src/go.sum
-      - run: go install github.com/securego/gosec/v2/cmd/gosec@v2.28.0
-      - name: Scan checks not cleanly duplicated elsewhere
-        run: >-
-          gosec -fmt=sarif -out=../gosec.sarif
-          -include=G103,G110,G116,G117,G118,G122,G301,G302,G303,G306,G307,G407,G408,G602,G709
-          -severity=medium ./...
-      - if: always()
-        uses: github/codeql-action/upload-sarif@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
-        with:
-          sarif_file: gosec.sarif
-          category: gosec
-
-  gitleaks:
-    name: Secret history
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: src/go.mod
-          cache: false
-      - run: go install github.com/zricethezav/gitleaks/v8@v8.30.1
-      - run: gitleaks git --redact --no-banner .
-
-  trivy:
-    name: Filesystem and workflow scan
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
-        with:
-          version: v0.72.0
-          cache: true
-      - name: Scan filesystem configuration
-        run: trivy fs --scanners misconfig --severity HIGH,CRITICAL --exit-code 1 .
-      - name: Generate and scan SPDX SBOM
-        run: |
-          trivy fs --format spdx-json --output trivy.spdx.json .
-          trivy sbom --scanners vuln --severity HIGH,CRITICAL --exit-code 1 trivy.spdx.json
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: trivy-sbom-${{ github.sha }}
-          path: trivy.spdx.json
-          retention-days: 30
-
   zizmor:
     name: Actions analysis
     runs-on: ubuntu-latest
