@@ -1,0 +1,144 @@
+name: QA
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "41 20 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  zizmor:
+    name: Actions analysis
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write # Upload zizmor SARIF.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: zizmorcore/zizmor-action@6fc4b006235f201fdab3722e17240ab420d580e5 # v0.6.1
+        with:
+          version: v1.28.0
+          advanced-security: true
+          annotations: true
+
+  licences:
+    name: Licence inventory
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: src/go.mod
+          cache-dependency-path: src/go.sum
+      - run: go install github.com/google/go-licenses/v2@v2.0.1
+      - name: Inventory cgo-free release graph
+        run: |
+          : > ../licences.csv
+          for target in darwin/arm64 linux/amd64 windows/amd64; do
+            release_os="${target%/*}"
+            release_arch="${target#*/}"
+            report="$(GOOS="$release_os" GOARCH="$release_arch" CGO_ENABLED=0 \
+              go-licenses report --ignore github.com/keys-i/blackbeard/src ./cmd/blackbeard)"
+            test -n "$report"
+            while IFS=, read -r package licence_url licence; do
+              test -n "$licence_url"
+              module="$(GOOS="$release_os" GOARCH="$release_arch" CGO_ENABLED=0 \
+                go list -f '{{with .Module}}{{.Path}},{{.Version}}{{end}}' "$package")"
+              test -n "$module"
+              printf '%s,%s\n' "$module" "$licence" >> ../licences.csv
+            done <<< "$report"
+          done
+          sort -u -o ../licences.csv ../licences.csv
+          cut -d, -f1 ../licences.csv | sort -u > ../modules.txt
+      - name: Reject unknown and policy-denied licences
+        run: |
+          if grep -Eiq ',(unknown|A?GPL-|LGPL-)[^,]*$' ../licences.csv; then
+            cat ../licences.csv
+            exit 1
+          fi
+          while IFS=, read -r module version licence; do
+            row="| \`$module\` | $version | $licence |"
+            if ! grep -Fqx "$row" ../docs/THIRD_PARTY_NOTICES.md; then
+              echo "Missing exact third-party notice: $row"
+              exit 1
+            fi
+          done < ../licences.csv
+          test -s ../docs/THIRD_PARTY_NOTICES.md
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: licence-inventory-${{ github.sha }}
+          path: |
+            licences.csv
+            modules.txt
+          retention-days: 30
+
+  fuzz:
+    name: Fuzz smoke
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: src/go.mod
+          cache-dependency-path: src/go.sum
+      - name: Run each real fuzz target
+        shell: bash
+        run: |
+          found=0
+          while IFS=: read -r file declaration; do
+            found=1
+            target="${declaration#func }"
+            package="./$(dirname "$file")"
+            go test "$package" -run '^$' -fuzz "^${target}$" -fuzztime=10s
+          done < <(rg -H --no-line-number -o 'func Fuzz[A-Za-z0-9_]+' --glob '*_test.go' . || true)
+          if [[ "$found" == 0 ]]; then
+            echo "No hostile-input parser has landed in the scaffold yet."
+          fi
+
+  scorecard:
+    name: OpenSSF Scorecard
+    if: github.event_name == 'push' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # Publish authenticated Scorecard results.
+      security-events: write # Upload Scorecard SARIF.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc # v2.4.4
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: scorecard-${{ github.sha }}
+          path: results.sarif
+          retention-days: 5
+      - uses: github/codeql-action/upload-sarif@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
+        with:
+          sarif_file: results.sarif
+          category: scorecard

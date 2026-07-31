@@ -29,10 +29,10 @@ will be distributed under the repository's [MIT License](../LICENSE).
 
 ## Checks
 
-Requires Go 1.26 or newer:
+Requires Go 1.26.5 or newer:
 
 ```sh
-cd cli
+cd src
 gofmt -w .
 go vet ./...
 go test -race ./...

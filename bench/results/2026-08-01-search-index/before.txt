@@ -1,0 +1,34 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/keys-i/blackbeard/src/internal/index
+cpu: Apple M3 Pro
+BenchmarkIndexRebuild-12              1  153197500 ns/op  36386584 B/op  436601 allocs/op
+BenchmarkIndexRebuild-12              1  124521709 ns/op  37246040 B/op  435534 allocs/op
+BenchmarkIndexRebuild-12              1  134277166 ns/op  36266816 B/op  435774 allocs/op
+BenchmarkIndexRebuild-12              1  151726958 ns/op  36223272 B/op  435635 allocs/op
+BenchmarkIndexRebuild-12              1  139608958 ns/op  36260256 B/op  435677 allocs/op
+BenchmarkIndexRebuild-12              1  140466500 ns/op  36248760 B/op  435774 allocs/op
+BenchmarkIndexRebuild-12              1  141765667 ns/op  36245056 B/op  435729 allocs/op
+BenchmarkIndexRebuild-12              1  142254334 ns/op  36236832 B/op  435725 allocs/op
+BenchmarkIndexRebuild-12              1  136840333 ns/op  36244112 B/op  435713 allocs/op
+BenchmarkIndexRebuild-12              1  151739958 ns/op  36276816 B/op  435767 allocs/op
+BenchmarkSearchWarm-12               85    1393438 ns/op   1020248 B/op    7264 allocs/op
+BenchmarkSearchWarm-12               72    1533404 ns/op   1033667 B/op    7427 allocs/op
+BenchmarkSearchWarm-12               60    1780921 ns/op   1047384 B/op    7655 allocs/op
+BenchmarkSearchWarm-12               58    1897097 ns/op   1047115 B/op    7720 allocs/op
+BenchmarkSearchWarm-12               62    1641905 ns/op   1041328 B/op    7626 allocs/op
+BenchmarkSearchWarm-12               80    1395276 ns/op   1022645 B/op    7331 allocs/op
+BenchmarkSearchWarm-12               70    1527199 ns/op   1035030 B/op    7447 allocs/op
+BenchmarkSearchWarm-12               78    1427379 ns/op   1027679 B/op    7338 allocs/op
+BenchmarkSearchWarm-12               85    1350997 ns/op   1019001 B/op    7270 allocs/op
+BenchmarkSearchWarm-12               68    1559649 ns/op   1036247 B/op    7502 allocs/op
+BenchmarkSearchColdOpen-12           12    9718878 ns/op   3380909 B/op   32194 allocs/op
+BenchmarkSearchColdOpen-12           12   10458858 ns/op   3400386 B/op   32765 allocs/op
+BenchmarkSearchColdOpen-12            8   14009677 ns/op   3393714 B/op   33157 allocs/op
+BenchmarkSearchColdOpen-12           12    9455344 ns/op   3531293 B/op   33949 allocs/op
+BenchmarkSearchColdOpen-12            8   12986417 ns/op   3430944 B/op   33020 allocs/op
+BenchmarkSearchColdOpen-12           13    9968163 ns/op   3493017 B/op   35091 allocs/op
+BenchmarkSearchColdOpen-12           12    9834052 ns/op   3383298 B/op   32230 allocs/op
+BenchmarkSearchColdOpen-12           13    9707407 ns/op   3441444 B/op   33152 allocs/op
+BenchmarkSearchColdOpen-12           12   10072153 ns/op   3564693 B/op   34784 allocs/op
+BenchmarkSearchColdOpen-12           14    9682470 ns/op   3454837 B/op   31692 allocs/op

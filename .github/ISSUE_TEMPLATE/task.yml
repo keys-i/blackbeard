@@ -1,7 +1,6 @@
 name: Task
 description: Track maintenance, research, or measured optimization work.
 title: "chore: "
-labels: ["task"]
 body:
   - type: textarea
     id: outcome

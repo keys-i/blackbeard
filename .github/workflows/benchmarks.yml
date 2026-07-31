@@ -1,0 +1,145 @@
+name: Benchmarks
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "31 20 * * 1"
+  pull_request:
+    types: [opened, reopened, synchronize, labeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: benchmarks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    name: Benchmark report
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'benchmark')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - if: github.event_name == 'pull_request'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: baseline
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: src/go.mod
+          cache-dependency-path: src/go.sum
+      - name: Record environment
+        shell: bash
+        run: |
+          {
+            uname -a
+            go version
+            go env
+            lscpu
+            free -b
+            df -T .
+            echo "open-file-limit=$(ulimit -n)"
+            echo "filesystem-cache=uncontrolled"
+          } > environment.txt
+      - name: Run current benchmarks ten times
+        working-directory: src
+        env:
+          CGO_ENABLED: "0"
+        run: go test -run '^$' -bench . -benchmem -count 10 ./... | tee ../bench-current.txt
+      - name: Run base benchmarks ten times
+        if: github.event_name == 'pull_request'
+        working-directory: baseline/src
+        env:
+          CGO_ENABLED: "0"
+        run: go test -run '^$' -bench . -benchmem -count 10 ./... | tee ../../bench-baseline.txt
+      - name: Compare base and current
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          if grep -q '^Benchmark' bench-baseline.txt && grep -q '^Benchmark' bench-current.txt; then
+            go install golang.org/x/perf/cmd/benchstat@v0.0.0-20260709024250-82a0b07e230d
+            benchstat bench-baseline.txt bench-current.txt | tee benchstat.txt
+          else
+            echo "No comparable benchmark samples in one or both revisions." | tee benchstat.txt
+          fi
+      - name: Collect representative profiles
+        working-directory: src
+        shell: bash
+        run: |
+          mkdir -p ../profiles
+          package="$(rg -l '^func BenchmarkOverall' --glob '*_test.go' . | head -n 1 | xargs -r dirname)"
+          if [[ -n "$package" ]]; then
+            go test "./${package#./}" -run '^$' -bench '^BenchmarkOverall$' -benchtime=3s \
+              -cpuprofile ../profiles/cpu.pprof -memprofile ../profiles/heap.pprof \
+              -trace ../profiles/trace.out
+          else
+            echo "No BenchmarkOverall profile target in this slice." > ../profiles/README.txt
+          fi
+      - name: Measure portable binary
+        working-directory: src
+        env:
+          CGO_ENABLED: "0"
+        shell: bash
+        run: |
+          go build -trimpath -o build/blackbeard ./cmd/blackbeard
+          stat -c '%s' build/blackbeard | tee ../size.txt
+      - name: Write benchmark tables
+        shell: bash
+        run: |
+          table() {
+            title="$1"
+            pattern="$2"
+            echo "## $title"
+            echo
+            echo "| Benchmark | ns/op | B/op | allocs/op |"
+            echo "|---|---:|---:|---:|"
+            rows="$(awk -v pattern="$pattern" '$1 ~ pattern {name=$1; sub(/-[0-9]+$/, "", name); printf "| %s | %s | %s | %s |\n", name, $3, $5, $7}' bench-current.txt)"
+            if [[ -n "$rows" ]]; then echo "$rows"; else echo "| _No benchmark in this slice_ | - | - | - |"; fi
+            echo
+          }
+          {
+            table "Overall" '^BenchmarkOverall'
+            table "Query, parser, and output" '^Benchmark(Query|Parse|Parser|Tokenize|Unit|Metadata|Sanitize|Dedupe|Ranking|Config|Bencode|JSON|NDJSON|Table)'
+            table "Index and search" '^Benchmark(Index|Search|Provider|Cache|Bleve|Semantic)'
+            table "Torrent engine" '^Benchmark(Torrent|Magnet|Piece|Verify|Resume|Seed|Transfer)'
+            table "Hashing and storage" '^Benchmark(Hash|Storage|Create)'
+            table "Streaming" '^Benchmark(Stream|Range|Seek)'
+            table "TUI" '^Benchmark(TUI|Render|Update)'
+            echo "## Binary size"
+            echo
+            echo "| Artifact | Bytes |"
+            echo "|---|---:|"
+            echo "| blackbeard linux/amd64, cgo-free | $(cat size.txt) |"
+            echo
+            echo "## Before/after benchstat"
+            echo
+            if [[ -f benchstat.txt ]]; then
+              echo '```text'
+              cat benchstat.txt
+              echo '```'
+            else
+              echo "No pull-request baseline was requested."
+            fi
+            echo
+            echo "> The scaffold reports Go microbenchmark data only. Hosted-runner,"
+            echo "> end-to-end, and public-network measurements are report-only until"
+            echo "> a controlled harness supplies resource and percentile metrics."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: benchmarks-${{ github.sha }}
+          path: |
+            bench-current.txt
+            bench-baseline.txt
+            benchstat.txt
+            environment.txt
+            profiles/
+            size.txt
+          if-no-files-found: error
+          retention-days: 30

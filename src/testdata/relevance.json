@@ -1,0 +1,10 @@
+[
+  {
+    "query": "climate",
+    "expected_source_ids": ["title-match", "facet-match", "description-match"]
+  },
+  {
+    "query": "arm64 Linux image under 2 GiB newest first",
+    "expected_source_ids": []
+  }
+]

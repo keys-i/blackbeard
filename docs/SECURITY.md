@@ -9,9 +9,10 @@ Only the current default branch and latest published release are supported.
 Do not open a public issue for a vulnerability that exposes secrets, private
 data, unsafe path handling, SSRF, code execution, or a practical exploit.
 
-Use the repository's private vulnerability reporting option. If it is not
-available, contact the maintainer, `@keys-i`, through an existing private
-channel before sending sensitive details.
+Private vulnerability reporting is not currently enabled. Contact the
+maintainer, `@keys-i`, through an existing private channel before sending
+sensitive details. This section will point to GitHub Security Advisories only
+after that repository setting is verified.
 
 Include:
 
@@ -26,6 +27,8 @@ security vulnerabilities; use the bug template for those.
 ## User safety
 
 Torrent hashes verify bytes against metainfo; they do not establish publisher
-identity, legality, or malware safety. Blackbeard never executes, opens,
-mounts, or extracts downloads. Peers and trackers can observe network
-addresses, and normal BitTorrent participation uploads pieces to other peers.
+identity, legality, or malware safety. Blackbeard never executes, mounts, or
+extracts downloaded payloads. An explicitly configured media player is invoked
+with an argument array, never through a shell. Peers and trackers can observe
+network addresses, and normal BitTorrent participation uploads pieces to other
+peers.

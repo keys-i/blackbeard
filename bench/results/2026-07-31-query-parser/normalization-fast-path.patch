@@ -1,0 +1,18 @@
+diff --git a/src/internal/query/query.go b/src/internal/query/query.go
+--- a/src/internal/query/query.go
++++ b/src/internal/query/query.go
+@@ -1073,0 +1074,3 @@ func normalize(value string) string {
++	if isASCII(value) {
++		return strings.ToLower(value)
++	}
+@@ -1076,0 +1080,10 @@ func normalize(value string) string {
++
++func isASCII(value string) bool {
++	for i := range len(value) {
++		if value[i] >= utf8.RuneSelf {
++			return false
++		}
++	}
++	return true
++}
++
