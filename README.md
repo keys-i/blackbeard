@@ -14,11 +14,11 @@ search across open catalogues and direct magnet or `.torrent` sources.
 
 ## Status
 
-Blackbeard is under active development. The current default branch is a
-compiling command skeleton; search and transfer features land through focused
-pull requests only after their fixture, security, and benchmark gates pass.
+Blackbeard is under active development. The deterministic query parser and
+schema-versioned output are implemented; provider search and torrent transfer
+remain unavailable until their fixture, security, and benchmark gates pass.
 
-## Build the scaffold
+## Build
 
 Go 1.26.5 or newer is required while the first release is being prepared:
 
@@ -33,6 +33,10 @@ go build -o build/blackbeard ./cmd/blackbeard
 ```sh
 ./build/blackbeard help
 ./build/blackbeard version
+./build/blackbeard search --explain \
+  "arm64 Linux image under 2 GiB newest first"
+./build/blackbeard --output json search --explain \
+  '"public domain" animation under 4 GiB from archive'
 ```
 
 Versioned installs use release archives. Blackbeard does not publish a Go

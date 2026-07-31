@@ -1,0 +1,6 @@
+target,cobra_version_path_bytes,shared_output_path_bytes,delta_bytes,delta_percent
+darwin-arm64,6840370,4836898,-2003472,-29.3
+darwin-amd64,7141760,5039008,-2102752,-29.4
+linux-arm64,6614195,4697716,-1916479,-29.0
+linux-amd64,6941417,4871038,-2070379,-29.8
+windows-amd64,7049216,5065728,-1983488,-28.1

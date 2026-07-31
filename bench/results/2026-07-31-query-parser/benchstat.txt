@@ -1,0 +1,27 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/keys-i/blackbeard/src/internal/query
+cpu: Apple M3 Pro
+                     │ naive-nfkc.txt │ ascii-fast-path.txt │
+                     │    sec/op      │   sec/op vs base    │
+ParseStructured-12        5.345µ ± 7%     3.006µ ± 11%  -43.76% (p=0.000 n=10)
+ParseLexical-12          17.813µ ± 2%     4.009µ ±  3%  -77.49% (p=0.000 n=10)
+Tokenize-12               350.6n ± 2%     362.9n ± 44%   +3.54% (p=0.000 n=10)
+ParseByteQuantity-12      188.1n ± 1%     192.0n ±  3%   +2.05% (p=0.034 n=10)
+geomean                   1.583µ          957.3n        -39.53%
+
+                     │ naive-nfkc.txt │ ascii-fast-path.txt │
+                     │     B/op       │    B/op vs base     │
+ParseStructured-12       10.256Ki ± 0%    3.251Ki ± 0%  -68.30% (p=0.000 n=10)
+ParseLexical-12          43.859Ki ± 0%    1.609Ki ± 0%  -96.33% (p=0.000 n=10)
+Tokenize-12                 728.0 ± 0%      728.0 ± 0%        ~ (p=1.000 n=10)
+ParseByteQuantity-12        152.0 ± 0%      152.0 ± 0%        ~ (p=1.000 n=10)
+geomean                   2.625Ki           882.7       -67.16%
+
+                     │ naive-nfkc.txt │ ascii-fast-path.txt │
+                     │  allocs/op     │ allocs/op vs base   │
+ParseStructured-12          76.00 ± 0%      48.00 ± 0%  -36.84% (p=0.000 n=10)
+ParseLexical-12             184.00 ± 0%      15.00 ± 0%  -91.85% (p=0.000 n=10)
+Tokenize-12                   3.000 ± 0%       3.000 ± 0%        ~ (p=1.000 n=10)
+ParseByteQuantity-12          8.000 ± 0%       8.000 ± 0%        ~ (p=1.000 n=10)
+geomean                      24.07            11.47       -52.37%

@@ -1,0 +1,44 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/keys-i/blackbeard/src/internal/query
+cpu: Apple M3 Pro
+BenchmarkParseStructured-12      	  357328	      2994 ns/op	    3329 B/op	      48 allocs/op
+BenchmarkParseStructured-12      	  398739	      3001 ns/op	    3329 B/op	      48 allocs/op
+BenchmarkParseStructured-12      	  405914	      3000 ns/op	    3329 B/op	      48 allocs/op
+BenchmarkParseStructured-12      	  410402	      3011 ns/op	    3329 B/op	      48 allocs/op
+BenchmarkParseStructured-12      	  401824	      3000 ns/op	    3329 B/op	      48 allocs/op
+BenchmarkParseStructured-12      	  390591	      2994 ns/op	    3329 B/op	      48 allocs/op
+BenchmarkParseStructured-12      	  405361	      3243 ns/op	    3329 B/op	      48 allocs/op
+BenchmarkParseStructured-12      	  368410	      3337 ns/op	    3330 B/op	      48 allocs/op
+BenchmarkParseStructured-12      	  370664	      3214 ns/op	    3329 B/op	      48 allocs/op
+BenchmarkParseStructured-12      	  397038	      4277 ns/op	    3330 B/op	      48 allocs/op
+BenchmarkParseLexical-12         	  287616	      4251 ns/op	    1648 B/op	      15 allocs/op
+BenchmarkParseLexical-12         	  281148	      4126 ns/op	    1648 B/op	      15 allocs/op
+BenchmarkParseLexical-12         	  307690	      3964 ns/op	    1648 B/op	      15 allocs/op
+BenchmarkParseLexical-12         	  308328	      4006 ns/op	    1648 B/op	      15 allocs/op
+BenchmarkParseLexical-12         	  303289	      4002 ns/op	    1648 B/op	      15 allocs/op
+BenchmarkParseLexical-12         	  293944	      4012 ns/op	    1648 B/op	      15 allocs/op
+BenchmarkParseLexical-12         	  306058	      3928 ns/op	    1648 B/op	      15 allocs/op
+BenchmarkParseLexical-12         	  307821	      3999 ns/op	    1648 B/op	      15 allocs/op
+BenchmarkParseLexical-12         	  296686	      4046 ns/op	    1648 B/op	      15 allocs/op
+BenchmarkParseLexical-12         	  298689	      4049 ns/op	    1648 B/op	      15 allocs/op
+BenchmarkTokenize-12             	 3323748	       358.6 ns/op	     728 B/op	       3 allocs/op
+BenchmarkTokenize-12             	 3324285	       374.5 ns/op	     728 B/op	       3 allocs/op
+BenchmarkTokenize-12             	 3245750	       362.7 ns/op	     728 B/op	       3 allocs/op
+BenchmarkTokenize-12             	 3328525	       363.2 ns/op	     728 B/op	       3 allocs/op
+BenchmarkTokenize-12             	 3333218	       358.4 ns/op	     728 B/op	       3 allocs/op
+BenchmarkTokenize-12             	 3356352	       355.2 ns/op	     728 B/op	       3 allocs/op
+BenchmarkTokenize-12             	 3396123	       355.5 ns/op	     728 B/op	       3 allocs/op
+BenchmarkTokenize-12             	 3379177	       372.3 ns/op	     728 B/op	       3 allocs/op
+BenchmarkTokenize-12             	 1995154	       520.9 ns/op	     728 B/op	       3 allocs/op
+BenchmarkTokenize-12             	 2376885	       563.6 ns/op	     728 B/op	       3 allocs/op
+BenchmarkParseByteQuantity-12    	 5309535	       200.1 ns/op	     152 B/op	       8 allocs/op
+BenchmarkParseByteQuantity-12    	 6142918	       197.1 ns/op	     152 B/op	       8 allocs/op
+BenchmarkParseByteQuantity-12    	 6369763	       194.7 ns/op	     152 B/op	       8 allocs/op
+BenchmarkParseByteQuantity-12    	 6070891	       187.5 ns/op	     152 B/op	       8 allocs/op
+BenchmarkParseByteQuantity-12    	 6396429	       188.3 ns/op	     152 B/op	       8 allocs/op
+BenchmarkParseByteQuantity-12    	 6463922	       192.1 ns/op	     152 B/op	       8 allocs/op
+BenchmarkParseByteQuantity-12    	 6215506	       187.8 ns/op	     152 B/op	       8 allocs/op
+BenchmarkParseByteQuantity-12    	 6421039	       191.9 ns/op	     152 B/op	       8 allocs/op
+BenchmarkParseByteQuantity-12    	 6076302	       195.0 ns/op	     152 B/op	       8 allocs/op
+BenchmarkParseByteQuantity-12    	 6376418	       187.8 ns/op	     152 B/op	       8 allocs/op

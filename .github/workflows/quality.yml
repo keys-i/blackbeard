@@ -173,23 +173,37 @@ jobs:
           cache-dependency-path: src/go.sum
       - run: go install github.com/google/go-licenses/v2@v2.0.1
       - name: Inventory cgo-free release graph
-        env:
-          CGO_ENABLED: "0"
         run: |
-          go-licenses report --ignore github.com/keys-i/blackbeard/src ./... > ../licences.csv
-          go list -m -f '{{if not .Main}}{{.Path}}{{end}}' all | sed '/^$/d' > ../modules.txt
+          : > ../licences.csv
+          for target in darwin/arm64 linux/amd64 windows/amd64; do
+            release_os="${target%/*}"
+            release_arch="${target#*/}"
+            report="$(GOOS="$release_os" GOARCH="$release_arch" CGO_ENABLED=0 \
+              go-licenses report --ignore github.com/keys-i/blackbeard/src ./cmd/blackbeard)"
+            test -n "$report"
+            while IFS=, read -r package licence_url licence; do
+              test -n "$licence_url"
+              module="$(GOOS="$release_os" GOARCH="$release_arch" CGO_ENABLED=0 \
+                go list -f '{{with .Module}}{{.Path}},{{.Version}}{{end}}' "$package")"
+              test -n "$module"
+              printf '%s,%s\n' "$module" "$licence" >> ../licences.csv
+            done <<< "$report"
+          done
+          sort -u -o ../licences.csv ../licences.csv
+          cut -d, -f1 ../licences.csv | sort -u > ../modules.txt
       - name: Reject unknown and policy-denied licences
         run: |
-          if grep -Eiq ',(unknown|A?GPL-|LGPL-)' ../licences.csv; then
+          if grep -Eiq ',(unknown|A?GPL-|LGPL-)[^,]*$' ../licences.csv; then
             cat ../licences.csv
             exit 1
           fi
-          while IFS= read -r module; do
-            if ! grep -Fq "\`$module\`" ../docs/THIRD_PARTY_NOTICES.md; then
-              echo "Missing third-party notice for $module"
+          while IFS=, read -r module version licence; do
+            row="| \`$module\` | $version | $licence |"
+            if ! grep -Fqx "$row" ../docs/THIRD_PARTY_NOTICES.md; then
+              echo "Missing exact third-party notice: $row"
               exit 1
             fi
-          done < ../modules.txt
+          done < ../licences.csv
           test -s ../docs/THIRD_PARTY_NOTICES.md
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

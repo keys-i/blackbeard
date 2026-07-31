@@ -105,7 +105,7 @@ jobs:
           }
           {
             table "Overall" '^BenchmarkOverall'
-            table "Query and parser" '^Benchmark(Query|Parser|Unit|Metadata|Sanitize|Dedupe|Ranking|Config|Bencode|JSON|NDJSON)'
+            table "Query, parser, and output" '^Benchmark(Query|Parse|Parser|Tokenize|Unit|Metadata|Sanitize|Dedupe|Ranking|Config|Bencode|JSON|NDJSON|Table)'
             table "Index and search" '^Benchmark(Index|Search|Provider|Cache|Bleve|Semantic)'
             table "Torrent engine" '^Benchmark(Torrent|Magnet|Piece|Verify|Resume|Seed|Transfer)'
             table "Hashing and storage" '^Benchmark(Hash|Storage|Create)'

@@ -1,0 +1,6 @@
+target,scaffold_bytes,query_slice_bytes,delta_bytes,delta_percent
+darwin-arm64,2512450,4836898,2324448,92.5
+darwin-amd64,2601280,5039008,2437728,93.7
+linux-arm64,2504912,4697716,2192804,87.5
+linux-amd64,2539656,4871038,2331382,91.8
+windows-amd64,2617856,5065728,2447872,93.5
