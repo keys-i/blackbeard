@@ -9,13 +9,8 @@ import (
 const usage = `Blackbeard — chart lawful torrents from the terminal
 
 Usage:
-  blackbeard
-  blackbeard search QUERY
-  blackbeard inspect MAGNET_OR_TORRENT
-  blackbeard fetch MAGNET_OR_TORRENT
-  blackbeard config
-  blackbeard version
   blackbeard help
+  blackbeard version
 `
 
 func Run(_ context.Context, args []string, _ io.Reader, stdout, _ io.Writer, version string) error {

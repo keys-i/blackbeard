@@ -14,31 +14,227 @@ permissions:
   contents: read
 
 jobs:
-  go:
+  structure:
+    name: Structure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Enforce repository shape
+        shell: bash
+        run: |
+          unexpected="$(find . -maxdepth 1 -type f -printf '%f\n' | sort | grep -Ev '^(LICENSE|README\.md)$' || true)"
+          if [[ -n "$unexpected" ]]; then
+            echo "Unexpected regular files at repository root:"
+            echo "$unexpected"
+            exit 1
+          fi
+          test -f src/go.mod
+          test -f src/go.sum
+          test -f src/cmd/blackbeard/main.go
+          test -f bench/README.md
+          test -f docs/CODE_OF_CONDUCT.md
+          test -f docs/CONTRIBUTING.md
+          test -f docs/SECURITY.md
+          test -f docs/CHANGELOG.md
+          test -f docs/THIRD_PARTY_NOTICES.md
+          test -f .github/dependabot.yml
+          test -f .github/PULL_REQUEST_TEMPLATE.md
+          test -f .github/lint/golangci.yml
+          test -f .github/release/goreleaser.yaml
+          test -f .github/release/release-please-config.json
+          test -f .github/release/release-please-manifest.json
+          test -f .github/workflows/checks.yml
+          test -f .github/workflows/quality.yml
+          test -f .github/workflows/benchmark.yml
+          test -f .github/workflows/release.yml
+          test ! -d cli
+          test ! -d .config
+          test ! -d dist
+          test "$(find . -path './.git' -prune -o -name go.mod -print)" = "./src/go.mod"
+          test "$(find . -path './.git' -prune -o -name go.sum -print)" = "./src/go.sum"
+          generated="$(git ls-files | grep -E '(^|/)(build|dist)/|(^|/)blackbeard$|(\.prof|coverage\.out|\.test|\.exe|\.dll|\.dylib|\.so|\.a|\.dSYM)$' || true)"
+          if [[ -n "$generated" ]]; then
+            echo "Generated artefacts are committed:"
+            echo "$generated"
+            exit 1
+          fi
+
+  format:
+    name: Format
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: cli
+        working-directory: src
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          go-version-file: cli/go.mod
-          cache-dependency-path: cli/go.sum
-      - name: Check formatting
-        run: test -z "$(gofmt -l .)"
+          persist-credentials: false
+      - name: Check gofmt
+        shell: bash
+        run: |
+          changed="$(gofmt -l .)"
+          if [[ -n "$changed" ]]; then
+            echo "Run gofmt on:"
+            echo "$changed"
+            exit 1
+          fi
+
+  lint:
+    name: Vet and lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: src/go.mod
+          cache-dependency-path: src/go.sum
       - name: Vet
         run: go vet ./...
-      - name: Test with race detector
-        run: go test -race ./...
-      - name: Build release binary
-        run: go build -trimpath -ldflags="-s -w" ./cmd/blackbeard
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.4
+      - name: Lint
+        run: golangci-lint run --config ../.github/lint/golangci.yml
 
-  markdown:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: src/go.mod
+          cache-dependency-path: src/go.sum
+      - name: Unit and integration tests
+        env:
+          CGO_ENABLED: "0"
+        run: go test -shuffle=on -covermode=atomic -coverprofile=coverage.out ./...
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-${{ github.sha }}
+          path: src/coverage.out
+          retention-days: 14
+
+  race:
+    name: Race detector
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: src/go.mod
+          cache-dependency-path: src/go.sum
+      - run: go test -race -shuffle=on ./...
+
+  build:
+    name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+          - goos: windows
+            goarch: arm64
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: src/go.mod
+          cache-dependency-path: src/go.sum
+      - name: Build portable binary
+        env:
+          CGO_ENABLED: "0"
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        shell: bash
+        run: |
+          suffix=""
+          if [[ "$GOOS" == windows ]]; then suffix=".exe"; fi
+          go build -trimpath \
+            -ldflags="-X github.com/keys-i/blackbeard/src/internal/version.Version=ci" \
+            -o "build/blackbeard-${GOOS}-${GOARCH}${suffix}" ./cmd/blackbeard
+      - name: Check native help and version
+        if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
+        run: |
+          build/blackbeard-linux-amd64 help
+          test "$(build/blackbeard-linux-amd64 version)" = "ci"
+
+  modules:
+    name: Module hygiene
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: src/go.mod
+          cache-dependency-path: src/go.sum
+      - run: go mod tidy
+      - name: Fail on module diff
+        run: git diff --exit-code -- go.mod go.sum
+      - run: go mod verify
+
+  summary:
+    name: Check summary
+    if: always()
+    needs: [structure, format, lint, test, race, build, modules]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - name: Check Markdown formatting
-        run: npx --yes prettier@3.9.6 --check "**/*.md"
-      - name: Lint Markdown
-        run: npx --yes markdownlint-cli2@0.23.1 "**/*.md"
+      - name: Write job summary
+        env:
+          STRUCTURE: ${{ needs.structure.result }}
+          FORMAT: ${{ needs.format.result }}
+          LINT: ${{ needs.lint.result }}
+          TEST: ${{ needs.test.result }}
+          RACE: ${{ needs.race.result }}
+          BUILD: ${{ needs.build.result }}
+          MODULES: ${{ needs.modules.result }}
+        run: |
+          {
+            echo "## Checks"
+            echo
+            echo "| Area | Result |"
+            echo "|---|---|"
+            echo "| Structure | $STRUCTURE |"
+            echo "| Format | $FORMAT |"
+            echo "| Vet and lint | $LINT |"
+            echo "| Tests | $TEST |"
+            echo "| Race | $RACE |"
+            echo "| Portable builds | $BUILD |"
+            echo "| Module hygiene | $MODULES |"
+          } >> "$GITHUB_STEP_SUMMARY"

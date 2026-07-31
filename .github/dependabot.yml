@@ -1,26 +1,75 @@
 version: 2
 
 updates:
-  - package-ecosystem: "gomod"
-    directory: "/cli"
+  - package-ecosystem: gomod
+    directory: /src
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: weekly
+      day: monday
       time: "06:00"
-      timezone: "Australia/Brisbane"
+      timezone: Australia/Brisbane
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 10
+    reviewers:
+      - keys-i
+    labels:
+      - dependencies
+      - area/torrent
     groups:
-      minor-and-patch:
-        patterns: ["*"]
-        update-types: ["minor", "patch"]
+      anacrolix:
+        patterns:
+          - github.com/anacrolix/*
+        update-types:
+          - minor
+          - patch
+      golang-x:
+        patterns:
+          - golang.org/x/*
+        update-types:
+          - minor
+          - patch
+      charm:
+        patterns:
+          - charm.land/*
+        update-types:
+          - minor
+          - patch
+      other-minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+      major:
+        patterns:
+          - "*"
+        update-types:
+          - major
 
-  - package-ecosystem: "github-actions"
-    directory: "/"
+  - package-ecosystem: github-actions
+    directory: /
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: weekly
+      day: monday
       time: "06:00"
-      timezone: "Australia/Brisbane"
+      timezone: Australia/Brisbane
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 10
+    reviewers:
+      - keys-i
+    labels:
+      - dependencies
     groups:
-      minor-and-patch:
-        patterns: ["*"]
-        update-types: ["minor", "patch"]
+      actions-minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+      actions-major:
+        patterns:
+          - "*"
+        update-types:
+          - major

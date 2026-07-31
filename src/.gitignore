@@ -1,3 +1,5 @@
 /blackbeard
+/build/
+/coverage.out
 *.test
 *.prof

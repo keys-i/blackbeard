@@ -6,81 +6,118 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   release-please:
+    name: Release Please
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # Create the release PR, tag, and draft release.
+      pull-requests: write # Create and update the release PR.
     outputs:
       created: ${{ steps.release.outputs.release_created }}
       tag: ${{ steps.release.outputs.tag_name }}
     steps:
       - id: release
-        uses: googleapis/release-please-action@0dfd8538845b8e92600d271a895a5372865d4062 # v5
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
-          config-file: .github/release-please-config.json
-          manifest-file: .github/.release-please-manifest.json
+          config-file: .github/release/release-please-config.json
+          manifest-file: .github/release/release-please-manifest.json
 
-  assets:
+  package:
+    name: Package, sign, attest, and publish
     needs: release-please
     if: needs.release-please.outputs.created == 'true'
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - goos: linux
-            goarch: amd64
-          - goos: linux
-            goarch: arm64
-          - goos: darwin
-            goarch: amd64
-          - goos: darwin
-            goarch: arm64
-          - goos: windows
-            goarch: amd64
-    defaults:
-      run:
-        working-directory: cli
+    permissions:
+      contents: write # Upload assets and publish the verified draft.
+      id-token: write # Obtain keyless signing and attestation identity.
+      attestations: write # Store build provenance.
+      artifact-metadata: write # Register attested artefacts.
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          go-version-file: cli/go.mod
-          cache-dependency-path: cli/go.sum
-      - name: Build
+          ref: ${{ needs.release-please.outputs.tag }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: src/go.mod
+          cache-dependency-path: src/go.sum
+          cache: false
+      - id: syft
+        uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          syft-version: v1.50.0
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.1.2
+      - id: codename
+        name: Derive deterministic release name
         env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
           TAG: ${{ needs.release-please.outputs.tag }}
-        run: |
-          suffix=""
-          if [ "$GOOS" = windows ]; then suffix=".exe"; fi
-          name="blackbeard-${TAG#v}-${GOOS}-${GOARCH}${suffix}"
-          go build -trimpath -ldflags="-s -w -X main.version=$TAG" -o "$name" ./cmd/blackbeard
-          sha256sum "$name" > "$name.sha256"
-      - name: Upload release asset
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.release-please.outputs.tag }}
-        run: gh release upload "$TAG" blackbeard-* --clobber
-
-  codename:
-    needs: [release-please, assets]
-    if: needs.release-please.outputs.created == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Add deterministic release codename
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.release-please.outputs.tag }}
+        shell: bash
         run: |
           version="${TAG#v}"
-          IFS=. read -r major minor patch <<EOF
-          $version
-          EOF
-          verbs=(Boarding Charting Hoisting Racing Sailing Tracking)
-          animals=(Albatross Barracuda Kraken Macaw Narwhal Orca)
-          verb="${verbs[$(((major + minor) % ${#verbs[@]}))]}"
-          animal="${animals[$(((minor + patch) % ${#animals[@]}))]}"
-          gh release edit "$TAG" --title "$verb $animal · $TAG"
+          IFS=. read -r major minor patch <<< "$version"
+          major=$((10#$major))
+          minor=$((10#$minor))
+          patch=$((10#$patch))
+          verbs=(Sailing Hoisting Charting Tacking Trimming Sounding Guiding Ranging)
+          animals=(Albatross Barracuda Cormorant Dolphin Eider Marlin Gannet Heron Narwhal Orca Puffin Tern)
+          verb="${verbs[$(((major * 5 + minor + patch * 3) % ${#verbs[@]}))]}"
+          animal="${animals[$(((major * 7 + minor * 6 + patch) % ${#animals[@]}))]}"
+          echo "name=$TAG — $verb $animal" >> "$GITHUB_OUTPUT"
+      - uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
+        with:
+          distribution: goreleaser
+          version: v2.17.1
+          args: release --clean --config .github/release/goreleaser.yaml
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RELEASE_NAME: ${{ steps.codename.outputs.name }}
+          SYFT_CMD: ${{ steps.syft.outputs.cmd }}
+      - name: Verify packages and signatures
+        env:
+          TAG: ${{ needs.release-please.outputs.tag }}
+        shell: bash
+        run: |
+          test "$(find src/build/release -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.zip' \) | wc -l | tr -d ' ')" = "5"
+          test "$(find src/build/release -maxdepth 1 -type f -name '*.spdx.json' | wc -l | tr -d ' ')" = "5"
+          test -f src/build/release/checksums.txt
+          test -f src/build/release/checksums.txt.sigstore.json
+          (
+            cd src/build/release
+            sha256sum -c checksums.txt
+          )
+          cosign verify-blob \
+            --bundle src/build/release/checksums.txt.sigstore.json \
+            --certificate-identity-regexp 'https://github.com/keys-i/blackbeard/.github/workflows/release\.yml@refs/heads/main' \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            src/build/release/checksums.txt
+          linux_binary="$(find src/build/release -type f -path '*linux_amd64*' -name blackbeard | head -n 1)"
+          test -n "$linux_binary"
+          test "$("$linux_binary" version)" = "${TAG#v}"
+          go version -m "$linux_binary" | grep 'vcs.modified=false'
+          for archive in src/build/release/*.tar.gz; do
+            tar -tzf "$archive" | grep -Eq '(^|/)LICENSE$'
+            tar -tzf "$archive" | grep -Eq '(^|/)THIRD_PARTY_NOTICES\.md$'
+          done
+          for archive in src/build/release/*.zip; do
+            unzip -Z1 "$archive" | grep -Eq '(^|/)LICENSE$'
+            unzip -Z1 "$archive" | grep -Eq '(^|/)THIRD_PARTY_NOTICES\.md$'
+          done
+      - uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-checksums: src/build/release/checksums.txt
+      - name: Publish verified draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release-please.outputs.tag }}
+          RELEASE_NAME: ${{ steps.codename.outputs.name }}
+        run: gh release edit "$TAG" --title "$RELEASE_NAME" --draft=false

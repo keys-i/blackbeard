@@ -8,8 +8,8 @@
 
 ## Verification
 
-- [ ] `gofmt -w .`
-- [ ] `go vet ./...`
-- [ ] `go test -race ./...`
+- [ ] `cd src && gofmt -w .`
+- [ ] `cd src && go vet ./...`
+- [ ] `cd src && go test -race ./...`
 - [ ] Benchmarks attached when performance is claimed
 - [ ] No piracy index, access-control bypass, or unlicensed fixture was added
