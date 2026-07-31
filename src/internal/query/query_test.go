@@ -249,12 +249,15 @@ func TestByteOffsetsUseOriginalUTF8(t *testing.T) {
 func TestUnicodeNormalizationAndCaseFolding(t *testing.T) {
 	t.Parallel()
 
-	got, err := Parse("ＡＲＭ６４ Straße e\u0301 ＳＩＺＥ:<1GiB")
+	got, err := Parse("ＡＲＭ６４ Straße e\u0301 ＳＩＺＥ:<1GiB \"Straße SEE\"")
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
 	assertValues(t, got.Architectures, "arm64")
 	assertTerms(t, got.Required, "strasse", "é")
+	if len(got.Phrases) != 1 || got.Phrases[0].Normalized != "strasse see" {
+		t.Fatalf("phrases = %#v", got.Phrases)
+	}
 	assertByteBound(t, got.Size.Max, 1<<30, false)
 }
 

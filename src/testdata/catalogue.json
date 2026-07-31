@@ -1,0 +1,53 @@
+[
+  {
+    "provider": "internet_archive",
+    "source_id": "title-match",
+    "title": "Climate field recordings",
+    "description": "Digitised environmental audio from public collections.",
+    "infohash_v1": "1111111111111111111111111111111111111111",
+    "size_bytes": 734003200,
+    "published_at": "2024-08-10T00:00:00Z",
+    "content_kinds": ["dataset"],
+    "media_kinds": ["audio"],
+    "extensions": [".flac"],
+    "languages": ["en"]
+  },
+  {
+    "provider": "academic_torrents",
+    "source_id": "facet-match",
+    "title": "Open weather observations",
+    "description": "A reproducible collection of measurements.",
+    "infohash_v1": "2222222222222222222222222222222222222222",
+    "size_bytes": 1073741824,
+    "published_at": "2025-02-03T00:00:00Z",
+    "categories": ["climate"],
+    "content_kinds": ["dataset"],
+    "extensions": [".csv"],
+    "languages": ["en"]
+  },
+  {
+    "provider": "internet_archive",
+    "source_id": "description-match",
+    "title": "Historical weather maps",
+    "description": "Public-domain climate maps and supporting notes.",
+    "infohash_v1": "3333333333333333333333333333333333333333",
+    "size_bytes": 2147483648,
+    "published_at": "2020-01-15T00:00:00Z",
+    "content_kinds": ["image"],
+    "extensions": [".tif"],
+    "languages": ["en"]
+  },
+  {
+    "provider": "debian",
+    "source_id": "debian-13-amd64",
+    "title": "Debian 13 amd64 netinst",
+    "description": "Official Debian installation image.",
+    "infohash_v1": "4444444444444444444444444444444444444444",
+    "size_bytes": 734003200,
+    "published_at": "2025-07-01T00:00:00Z",
+    "content_kinds": ["disk_image"],
+    "media_kinds": ["disk_image"],
+    "extensions": [".iso"],
+    "architectures": ["amd64"]
+  }
+]

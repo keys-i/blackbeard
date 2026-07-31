@@ -11,8 +11,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"golang.org/x/text/cases"
-	"golang.org/x/text/unicode/norm"
+	"github.com/keys-i/blackbeard/src/internal/domain"
 )
 
 const (
@@ -1070,21 +1069,7 @@ func matchWords(tokens []token, used []bool, at int, words []string) bool {
 }
 
 func normalize(value string) string {
-	value = strings.TrimSpace(value)
-	if isASCII(value) {
-		return strings.ToLower(value)
-	}
-	value = norm.NFKC.String(value)
-	return norm.NFKC.String(fold.String(value))
-}
-
-func isASCII(value string) bool {
-	for i := range len(value) {
-		if value[i] >= utf8.RuneSelf {
-			return false
-		}
-	}
-	return true
+	return domain.NormalizeSearchText(value)
 }
 
 func compact(value string) string {
@@ -1113,8 +1098,6 @@ func allASCII(value string, allowed func(byte) bool) bool {
 func asciiDigit(c byte) bool         { return c >= '0' && c <= '9' }
 func asciiLetter(c byte) bool        { return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' }
 func asciiLetterOrDigit(c byte) bool { return asciiLetter(c) || asciiDigit(c) }
-
-var fold = cases.Fold()
 
 var byteUnits = map[string]int64{
 	"b":   1,
