@@ -64,9 +64,6 @@ jobs:
   format:
     name: Format
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: src
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -74,7 +71,7 @@ jobs:
       - name: Check gofmt
         shell: bash
         run: |
-          changed="$(gofmt -l .)"
+          changed="$(gofmt -l src bench/harness)"
           if [[ -n "$changed" ]]; then
             echo "Run gofmt on:"
             echo "$changed"
