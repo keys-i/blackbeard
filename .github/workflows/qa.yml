@@ -57,8 +57,11 @@ jobs:
             test -n "$report"
             while IFS=, read -r package licence_url licence; do
               test -n "$licence_url"
-              module="$(GOOS="$release_os" GOARCH="$release_arch" CGO_ENABLED=0 \
-                go list -f '{{with .Module}}{{.Path}},{{.Version}}{{end}}' "$package")"
+              if ! module="$(GOOS="$release_os" GOARCH="$release_arch" CGO_ENABLED=0 \
+                go list -f '{{with .Module}}{{.Path}},{{.Version}}{{end}}' "$package" 2>/dev/null)" || [[ -z "$module" ]]; then
+                module="$(GOOS="$release_os" GOARCH="$release_arch" CGO_ENABLED=0 \
+                  go list -m -f '{{.Path}},{{.Version}}' "$package")"
+              fi
               test -n "$module"
               printf '%s,%s\n' "$module" "$licence" >> ../licences.csv
             done <<< "$report"

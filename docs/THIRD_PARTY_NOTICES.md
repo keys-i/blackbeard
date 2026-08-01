@@ -5,18 +5,46 @@ the Darwin, Linux, and Windows release graphs against this list.
 
 | Module | Version | Licence |
 |---|---|---|
+| `github.com/RoaringBitmap/roaring/v2` | v2.14.5 | Apache-2.0 |
+| `github.com/RoaringBitmap/roaring/v2` | v2.14.5 | BSD-3-Clause |
+| `github.com/bits-and-blooms/bitset` | v1.24.2 | BSD-3-Clause |
+| `github.com/blevesearch/bleve/v2` | v2.6.0 | Apache-2.0 |
+| `github.com/blevesearch/bleve_index_api` | v1.3.11 | Apache-2.0 |
+| `github.com/blevesearch/geo` | v0.2.5 | Apache-2.0 |
+| `github.com/blevesearch/go-porterstemmer` | v1.0.3 | MIT |
+| `github.com/blevesearch/gtreap` | v0.1.1 | MIT |
+| `github.com/blevesearch/mmap-go` | v1.2.0 | BSD-3-Clause |
+| `github.com/blevesearch/scorch_segment_api/v2` | v2.4.7 | Apache-2.0 |
+| `github.com/blevesearch/segment` | v0.9.1 | Apache-2.0 |
+| `github.com/blevesearch/snowballstem` | v0.9.0 | BSD-3-Clause |
+| `github.com/blevesearch/upsidedown_store_api` | v1.0.2 | Apache-2.0 |
+| `github.com/blevesearch/vellum` | v1.2.0 | Apache-2.0 |
+| `github.com/blevesearch/zapx/v11` | v11.4.3 | Apache-2.0 |
+| `github.com/blevesearch/zapx/v12` | v12.4.3 | Apache-2.0 |
+| `github.com/blevesearch/zapx/v13` | v13.4.3 | Apache-2.0 |
+| `github.com/blevesearch/zapx/v14` | v14.4.3 | Apache-2.0 |
+| `github.com/blevesearch/zapx/v15` | v15.4.3 | Apache-2.0 |
+| `github.com/blevesearch/zapx/v16` | v16.3.4 | Apache-2.0 |
+| `github.com/blevesearch/zapx/v17` | v17.1.2 | Apache-2.0 |
+| `github.com/golang/snappy` | v1.0.0 | BSD-3-Clause |
 | `github.com/inconshreveable/mousetrap` | v1.1.0 | Apache-2.0 |
+| `github.com/json-iterator/go` | v0.0.0-20171115153421-f7279a603ede | MIT |
+| `github.com/mschoch/smat` | v0.2.0 | Apache-2.0 |
 | `github.com/spf13/cobra` | v1.10.2 | Apache-2.0 |
 | `github.com/spf13/pflag` | v1.0.9 | BSD-3-Clause |
+| `go.etcd.io/bbolt` | v1.4.0 | MIT |
+| `golang.org/x/sys` | v0.42.0 | BSD-3-Clause |
 | `golang.org/x/text` | v0.40.0 | BSD-3-Clause |
+| `google.golang.org/protobuf` | v1.36.6 | BSD-3-Clause |
 
 Blackbeard's own source is licensed under the repository's
 [MIT License](../LICENSE).
 
 ## Apache License 2.0
 
-This text applies to `github.com/inconshreveable/mousetrap` and
-`github.com/spf13/cobra`.
+This text applies to the Apache-2.0 rows in the inventory above. None of those
+module archives contains a separate root `NOTICE` file. The Mousetrap
+attribution in the appendix is preserved from its upstream licence file.
 
 ```text
                                  Apache License
@@ -222,11 +250,20 @@ This text applies to `github.com/inconshreveable/mousetrap` and
    limitations under the License.
 ```
 
-## pflag BSD-3-Clause licence
+## Google Inc. BSD-3-Clause licences
+
+This text applies to the BSD-3-Clause portions of
+`github.com/RoaringBitmap/roaring/v2`, `github.com/bits-and-blooms/bitset`,
+`github.com/golang/snappy`, `github.com/spf13/pflag`, and
+`google.golang.org/protobuf`.
 
 ```text
+Copyright (c) 2009 The Go Authors. All rights reserved.
+Copyright (c) 2014 Will Fitzgerald. All rights reserved.
+Copyright (c) 2011 The Snappy-Go Authors. All rights reserved.
 Copyright (c) 2012 Alex Ogier. All rights reserved.
 Copyright (c) 2012 The Go Authors. All rights reserved.
+Copyright (c) 2018 The Go Authors. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are
@@ -255,7 +292,103 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-## x/text BSD-3-Clause licence
+## mmap-go BSD-3-Clause licence
+
+```text
+Copyright (c) 2011, Evan Shaw <edsrzf@gmail.com>
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+    * Redistributions in binary form must reproduce the above copyright
+      notice, this list of conditions and the following disclaimer in the
+      documentation and/or other materials provided with the distribution.
+    * Neither the name of the copyright holder nor the
+      names of its contributors may be used to endorse or promote products
+      derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
+## Snowball BSD-3-Clause licence
+
+```text
+Copyright (c) 2001, Dr Martin Porter
+Copyright (c) 2004,2005, Richard Boulton
+Copyright (c) 2013, Yoshiki Shibukawa
+Copyright (c) 2006,2007,2009,2010,2011,2014-2019, Olly Betts
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+
+  1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+  2. Redistributions in binary form must reproduce the above copyright notice,
+     this list of conditions and the following disclaimer in the documentation
+     and/or other materials provided with the distribution.
+  3. Neither the name of the Snowball project nor the names of its contributors
+     may be used to endorse or promote products derived from this software
+     without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
+## MIT licences
+
+This text applies to `github.com/blevesearch/go-porterstemmer`,
+`github.com/blevesearch/gtreap`, `github.com/json-iterator/go`, and
+`go.etcd.io/bbolt`.
+
+```text
+Copyright (c) 2013 Charles Iliya Krempeaux <charles@reptile.ca> :: http://changelog.ca/
+Copyright (C) 2012 Steve Yen
+Copyright (c) 2016 json-iterator
+Copyright (c) 2013 Ben Johnson
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+```
+
+## Go project BSD-3-Clause licence
+
+This text applies to `golang.org/x/sys` and `golang.org/x/text`.
 
 ```text
 Copyright 2009 The Go Authors.

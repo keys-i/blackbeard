@@ -4,6 +4,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -22,7 +23,7 @@ func TestSecondInterruptRestoresDefaultHandler(t *testing.T) {
 		select {}
 	}
 
-	command := exec.Command(os.Args[0], "-test.run=^TestSecondInterruptRestoresDefaultHandler$")
+	command := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestSecondInterruptRestoresDefaultHandler$")
 	command.Env = append(os.Environ(), "BLACKBEARD_SIGNAL_TEST=child")
 	stdout, err := command.StdoutPipe()
 	if err != nil {
@@ -51,8 +52,8 @@ func TestSecondInterruptRestoresDefaultHandler(t *testing.T) {
 	go func() { done <- command.Wait() }()
 	select {
 	case err := <-done:
-		exit, ok := err.(*exec.ExitError)
-		if !ok {
+		var exit *exec.ExitError
+		if !errors.As(err, &exit) {
 			t.Fatalf("second interrupt error = %v", err)
 		}
 		status, ok := exit.Sys().(syscall.WaitStatus)
