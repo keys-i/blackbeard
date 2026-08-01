@@ -87,6 +87,14 @@ func run(ctx context.Context, args []string, _ io.Reader, stdout, stderr io.Writ
 			return writeVersion(cmd.OutOrStdout(), format, version)
 		},
 	})
+	root.AddCommand(&cobra.Command{
+		Use:   "inspect <magnet|torrent>",
+		Short: "Inspect torrent metadata without downloading payloads",
+		Args:  oneSource,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return inspectSource(cmd.Context(), output.NewEncoder(cmd.OutOrStdout()), format, args[0], deps.fetchTorrent)
+		},
+	})
 
 	search := &cobra.Command{
 		Use:   "search [flags] <query>",

@@ -19,6 +19,7 @@ import (
 	"github.com/keys-i/blackbeard/src/internal/provider/academictorrents"
 	"github.com/keys-i/blackbeard/src/internal/query"
 	"github.com/keys-i/blackbeard/src/internal/termtext"
+	"github.com/keys-i/blackbeard/src/internal/torrent"
 )
 
 const (
@@ -31,6 +32,7 @@ const (
 type catalogueDeps struct {
 	userCacheDir func() (string, error)
 	newAcademic  func(string) (provider.CatalogSyncer, error)
+	fetchTorrent torrent.Fetch
 }
 
 type cataloguePaths struct {
@@ -64,7 +66,7 @@ type syncOutput struct {
 }
 
 func productionCatalogueDeps() catalogueDeps {
-	return catalogueDeps{userCacheDir: os.UserCacheDir, newAcademic: academictorrents.NewSyncer}
+	return catalogueDeps{userCacheDir: os.UserCacheDir, newAcademic: academictorrents.NewSyncer, fetchTorrent: fetchTorrentHTTPS}
 }
 
 func resolveCataloguePaths(deps catalogueDeps) (cataloguePaths, error) {

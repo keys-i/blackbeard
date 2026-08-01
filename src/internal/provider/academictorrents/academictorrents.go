@@ -195,7 +195,7 @@ func (c *Catalog) Resolve(ctx context.Context, record domain.Record) (provider.S
 	torrentURL := origin + "/download/" + hash + ".torrent"
 	response, err := c.fetch(ctx, "/download/"+hash+".torrent", provider.FetchOptions{
 		MaxBody:             maxMetainfoBytes,
-		ValidateContentType: validateTorrentContentType,
+		ValidateContentType: provider.ValidateMetainfoContentType,
 	})
 	if err != nil {
 		return provider.Source{}, fmt.Errorf("resolve academic torrents metainfo: %w", err)
@@ -232,15 +232,6 @@ func validateXMLContentType(mediaType string) error {
 		return nil
 	default:
 		return fmt.Errorf("unexpected Academic Torrents catalogue content type %q", mediaType)
-	}
-}
-
-func validateTorrentContentType(mediaType string) error {
-	switch mediaType {
-	case "", "application/x-bittorrent", "application/octet-stream":
-		return nil
-	default:
-		return fmt.Errorf("unexpected Academic Torrents metainfo content type %q", mediaType)
 	}
 }
 
