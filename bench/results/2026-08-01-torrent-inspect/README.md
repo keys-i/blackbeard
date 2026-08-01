@@ -65,6 +65,11 @@ CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath \
   -o /private/tmp/blackbeard-inspect-<before|after> ./cmd/blackbeard
 ```
 
+`go version -m` records `vcs.modified=false` for both binaries, at revisions
+`626c507e449ad57db8f55b4b98a5473beb0c1b9f` and
+`77fa0154a426591b951bc6dfd6603fd7d7152377` respectively; the captured build
+metadata is in [`binary-buildinfo.txt`](binary-buildinfo.txt).
+
 ## Profiles
 
 A 3-second metadata-heavy run completed with CPU, heap, and runtime-trace
@@ -76,10 +81,33 @@ CI artefacts.
 ## Commands and limits
 
 ```sh
-go test -run '^$' \
+BLACKBEARD_REPO=$(pwd)
+BLACKBEARD_BENCH=$(mktemp -d)
+git worktree add --detach "$BLACKBEARD_BENCH/tree" \
+  45f0caa0bc7c4cb09599d865cbcd6f51853fe626
+git -C "$BLACKBEARD_BENCH/tree" apply --check \
+  "$BLACKBEARD_REPO/bench/results/2026-08-01-torrent-inspect/baseline.patch"
+git -C "$BLACKBEARD_BENCH/tree" apply \
+  "$BLACKBEARD_REPO/bench/results/2026-08-01-torrent-inspect/baseline.patch"
+cd "$BLACKBEARD_BENCH/tree/src"
+CGO_ENABLED=0 go test -run '^$' \
   -bench '^BenchmarkInspect(V1|V2|Hybrid|MetadataHeavy)$' \
-  -benchmem -benchtime=500ms -count=10 ./internal/torrent
-benchstat baseline.txt raw.txt
+  -benchmem -benchtime=500ms -count=10 ./internal/torrent \
+  > "$BLACKBEARD_BENCH/baseline.txt"
+cd ..
+git apply --reverse \
+  "$BLACKBEARD_REPO/bench/results/2026-08-01-torrent-inspect/baseline.patch"
+git diff --quiet -- src/internal/torrent/inspect.go
+cd src
+CGO_ENABLED=0 go test -run '^$' \
+  -bench '^BenchmarkInspect(V1|V2|Hybrid|MetadataHeavy)$' \
+  -benchmem -benchtime=500ms -count=10 ./internal/torrent \
+  > "$BLACKBEARD_BENCH/current.txt"
+go run golang.org/x/perf/cmd/benchstat@v0.0.0-20260709024250-82a0b07e230d \
+  "$BLACKBEARD_BENCH/baseline.txt" "$BLACKBEARD_BENCH/current.txt"
+cd "$BLACKBEARD_REPO"
+git worktree remove "$BLACKBEARD_BENCH/tree"
+cd src
 go test -c -o /private/tmp/blackbeard-torrent.test ./internal/torrent
 /usr/bin/time -l /private/tmp/blackbeard-torrent.test \
   -test.run '^$' -test.bench '^BenchmarkInspectV1$' \

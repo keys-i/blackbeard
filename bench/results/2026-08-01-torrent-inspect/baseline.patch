@@ -2,19 +2,36 @@ diff --git a/src/internal/torrent/inspect.go b/src/internal/torrent/inspect.go
 index b9ac858..f038276 100644
 --- a/src/internal/torrent/inspect.go
 +++ b/src/internal/torrent/inspect.go
-@@ -702,7 +702,7 @@ func validateDistinctPaths(files []File) error {
- 		parts := strings.Split(file.Path, "/")
- 		folded := make([]string, len(parts))
- 		for i, part := range parts {
+@@ -697,37 +697,30 @@
+ func validateDistinctPaths(files []File) error {
+-	paths := make(map[string]struct{}, len(files))
+-	dirs := make(map[string]struct{})
+-	fold := cases.Fold()
+-	for _, file := range files {
+-		parts := strings.Split(file.Path, "/")
+-		folded := make([]string, len(parts))
+-		for i, part := range parts {
 -			folded[i] = portablePathKey(fold, part)
-+			folded[i] = norm.NFC.String(fold.String(part))
- 		}
- 		full := strings.Join(folded, "/")
- 		if _, exists := paths[full]; exists {
-@@ -723,13 +723,6 @@ func validateDistinctPaths(files []File) error {
- 	return nil
- }
- 
+-		}
+-		full := strings.Join(folded, "/")
+-		if _, exists := paths[full]; exists {
+-			return invalidMetainfo("duplicate or case-colliding file path")
+-		}
+-		if _, exists := dirs[full]; exists {
+-			return invalidMetainfo("file path collides with a directory")
+-		}
+-		for i := 1; i < len(folded); i++ {
+-			prefix := strings.Join(folded[:i], "/")
+-			if _, exists := paths[prefix]; exists {
+-				return invalidMetainfo("directory path collides with a file")
+-			}
+-			dirs[prefix] = struct{}{}
+-		}
+-		paths[full] = struct{}{}
+-	}
+-	return nil
+-}
+-
 -func portablePathKey(fold cases.Caser, value string) string {
 -	if strings.IndexFunc(value, func(r rune) bool { return r >= utf8.RuneSelf }) < 0 {
 -		return strings.ToLower(value)
@@ -22,6 +39,32 @@ index b9ac858..f038276 100644
 -	return norm.NFC.String(fold.String(value))
 -}
 -
++	paths := make(map[string]struct{}, len(files))
++	dirs := make(map[string]struct{})
++	fold := cases.Fold()
++	for _, file := range files {
++		parts := strings.Split(file.Path, "/")
++		folded := make([]string, len(parts))
++		for i, part := range parts {
++			folded[i] = norm.NFC.String(fold.String(part))
++		}
++		full := strings.Join(folded, "/")
++		if _, exists := paths[full]; exists {
++			return invalidMetainfo("duplicate or case-colliding file path")
++		}
++		if _, exists := dirs[full]; exists {
++			return invalidMetainfo("file path collides with a directory")
++		}
++		for i := 1; i < len(folded); i++ {
++			prefix := strings.Join(folded[:i], "/")
++			if _, exists := paths[prefix]; exists {
++				return invalidMetainfo("directory path collides with a file")
++			}
++			dirs[prefix] = struct{}{}
++		}
++		paths[full] = struct{}{}
++	}
++	return nil
++}
++
  func cleanURLs(values []string, limit int, tracker bool) ([]string, error) {
- 	if len(values) > limit {
- 		return nil, fmt.Errorf("URL count exceeds %d", limit)

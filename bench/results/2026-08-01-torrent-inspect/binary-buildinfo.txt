@@ -1,0 +1,17 @@
+command: go version -m /private/tmp/blackbeard-inspect-<before|after>
+
+before
+go: go1.26.5
+revision: 626c507e449ad57db8f55b4b98a5473beb0c1b9f
+vcs.modified: false
+CGO_ENABLED: 0
+GOOS/GOARCH: darwin/arm64
+trimpath: true
+
+after
+go: go1.26.5
+revision: 77fa0154a426591b951bc6dfd6603fd7d7152377
+vcs.modified: false
+CGO_ENABLED: 0
+GOOS/GOARCH: darwin/arm64
+trimpath: true
