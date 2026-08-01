@@ -1,0 +1,14 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/keys-i/blackbeard/src/internal/provider/academictorrents
+cpu: Apple M3 Pro
+BenchmarkParseCatalog-12       80  13472016 ns/op  77.66 MB/s  6851491 B/op  176805 allocs/op
+BenchmarkParseCatalog-12       85  14022901 ns/op  74.61 MB/s  6851563 B/op  176805 allocs/op
+BenchmarkParseCatalog-12       84  13961347 ns/op  74.94 MB/s  6851479 B/op  176805 allocs/op
+BenchmarkParseCatalog-12       90  13377194 ns/op  78.21 MB/s  6851485 B/op  176805 allocs/op
+BenchmarkParseCatalog-12       91  13566169 ns/op  77.12 MB/s  6851481 B/op  176805 allocs/op
+BenchmarkParseCatalog-12       90  13607830 ns/op  76.88 MB/s  6851471 B/op  176805 allocs/op
+BenchmarkParseCatalog-12       84  13393016 ns/op  78.12 MB/s  6851466 B/op  176805 allocs/op
+BenchmarkParseCatalog-12       90  13289912 ns/op  78.72 MB/s  6851472 B/op  176805 allocs/op
+BenchmarkParseCatalog-12       90  13559719 ns/op  77.15 MB/s  6851472 B/op  176805 allocs/op
+BenchmarkParseCatalog-12       88  13305379 ns/op  78.63 MB/s  6851487 B/op  176805 allocs/op
