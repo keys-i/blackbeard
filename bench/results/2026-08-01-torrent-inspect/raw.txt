@@ -1,0 +1,46 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/keys-i/blackbeard/src/internal/torrent
+cpu: Apple M3 Pro
+BenchmarkInspectV1-12               	  176586	      3397 ns/op	    4058 B/op	      62 allocs/op
+BenchmarkInspectV1-12               	  181995	      3337 ns/op	    4058 B/op	      62 allocs/op
+BenchmarkInspectV1-12               	  162314	      3457 ns/op	    4058 B/op	      62 allocs/op
+BenchmarkInspectV1-12               	  177472	      3252 ns/op	    4058 B/op	      62 allocs/op
+BenchmarkInspectV1-12               	  173110	      3373 ns/op	    4058 B/op	      62 allocs/op
+BenchmarkInspectV1-12               	  178753	      3367 ns/op	    4058 B/op	      62 allocs/op
+BenchmarkInspectV1-12               	  181712	      3393 ns/op	    4058 B/op	      62 allocs/op
+BenchmarkInspectV1-12               	  176548	      3380 ns/op	    4058 B/op	      62 allocs/op
+BenchmarkInspectV1-12               	  177783	      3454 ns/op	    4058 B/op	      62 allocs/op
+BenchmarkInspectV1-12               	  165663	      3626 ns/op	    4058 B/op	      62 allocs/op
+BenchmarkInspectV2-12               	   76194	      7897 ns/op	   12128 B/op	     133 allocs/op
+BenchmarkInspectV2-12               	   78944	      7622 ns/op	   12128 B/op	     133 allocs/op
+BenchmarkInspectV2-12               	   84055	      7292 ns/op	   12128 B/op	     133 allocs/op
+BenchmarkInspectV2-12               	   82681	      7263 ns/op	   12128 B/op	     133 allocs/op
+BenchmarkInspectV2-12               	   82611	      7551 ns/op	   12128 B/op	     133 allocs/op
+BenchmarkInspectV2-12               	   83155	      7277 ns/op	   12128 B/op	     133 allocs/op
+BenchmarkInspectV2-12               	   84621	      7080 ns/op	   12128 B/op	     133 allocs/op
+BenchmarkInspectV2-12               	   84520	      7476 ns/op	   12128 B/op	     133 allocs/op
+BenchmarkInspectV2-12               	   79238	      7845 ns/op	   12128 B/op	     133 allocs/op
+BenchmarkInspectV2-12               	   71643	      8431 ns/op	   12128 B/op	     133 allocs/op
+BenchmarkInspectHybrid-12           	   53745	     10640 ns/op	   13528 B/op	     176 allocs/op
+BenchmarkInspectHybrid-12           	   60572	      9985 ns/op	   13529 B/op	     176 allocs/op
+BenchmarkInspectHybrid-12           	   60562	     10015 ns/op	   13528 B/op	     176 allocs/op
+BenchmarkInspectHybrid-12           	   60495	      9920 ns/op	   13529 B/op	     176 allocs/op
+BenchmarkInspectHybrid-12           	   60669	      9971 ns/op	   13529 B/op	     176 allocs/op
+BenchmarkInspectHybrid-12           	   60210	     10109 ns/op	   13529 B/op	     176 allocs/op
+BenchmarkInspectHybrid-12           	   56121	     10799 ns/op	   13529 B/op	     176 allocs/op
+BenchmarkInspectHybrid-12           	   57116	     10376 ns/op	   13529 B/op	     176 allocs/op
+BenchmarkInspectHybrid-12           	   60183	     10251 ns/op	   13529 B/op	     176 allocs/op
+BenchmarkInspectHybrid-12           	   58300	     10507 ns/op	   13529 B/op	     176 allocs/op
+BenchmarkInspectMetadataHeavy-12    	     720	    822795 ns/op	  576562 B/op	   13907 allocs/op
+BenchmarkInspectMetadataHeavy-12    	     735	    813453 ns/op	  576557 B/op	   13907 allocs/op
+BenchmarkInspectMetadataHeavy-12    	     734	    815835 ns/op	  576560 B/op	   13907 allocs/op
+BenchmarkInspectMetadataHeavy-12    	     691	    867019 ns/op	  576571 B/op	   13907 allocs/op
+BenchmarkInspectMetadataHeavy-12    	     696	    896365 ns/op	  576575 B/op	   13907 allocs/op
+BenchmarkInspectMetadataHeavy-12    	     597	    979137 ns/op	  576571 B/op	   13907 allocs/op
+BenchmarkInspectMetadataHeavy-12    	     589	   1020811 ns/op	  576569 B/op	   13907 allocs/op
+BenchmarkInspectMetadataHeavy-12    	     625	    963559 ns/op	  576576 B/op	   13907 allocs/op
+BenchmarkInspectMetadataHeavy-12    	     642	    912941 ns/op	  576566 B/op	   13907 allocs/op
+BenchmarkInspectMetadataHeavy-12    	     570	    933683 ns/op	  576566 B/op	   13907 allocs/op
+PASS
+ok  	github.com/keys-i/blackbeard/src/internal/torrent	24.244s

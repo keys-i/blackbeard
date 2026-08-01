@@ -1,0 +1,16 @@
+cold-process first parse (one sample each; descriptive, warm filesystem cache)
+command: /usr/bin/time -l /private/tmp/blackbeard-torrent.test -test.run '^$' -test.bench '^BenchmarkInspect<fixture>$' -test.benchtime=1x -test.count=1
+v1: 46625 ns/op, 11680 B/op, 132 allocs/op, 13713408-byte max RSS, 6029936-byte peak footprint
+v2: 43333 ns/op, 18320 B/op, 203 allocs/op, 13910016-byte max RSS, 6046272-byte peak footprint
+hybrid: 57291 ns/op, 23256 B/op, 272 allocs/op, 13975552-byte max RSS, 6144624-byte peak footprint
+metadata-heavy: 955917 ns/op, 585400 B/op, 13999 allocs/op, 14860288-byte max RSS, 6947440-byte peak footprint
+
+cold CLI magnet inspection
+command: /usr/bin/time -l /private/tmp/blackbeard-inspect-after --output json inspect <fixed-v1-magnet>
+maximum resident set size: 18808832 bytes
+peak memory footprint: 7766664 bytes
+real/user/sys: 0.00 / 0.00 / 0.00 seconds
+
+cold version-command comparison (single samples; descriptive, not a regression claim)
+before maximum RSS / peak footprint: 17809408 / 7520880 bytes
+after maximum RSS / peak footprint: 18530304 / 7766616 bytes

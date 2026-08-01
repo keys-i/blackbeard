@@ -1,0 +1,27 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/keys-i/blackbeard/src/internal/torrent
+cpu: Apple M3 Pro
+                        │ baseline.txt │               raw.txt                │
+                        │    sec/op    │    sec/op     vs base                │
+InspectV1-12              3.500µ ±  4%   3.387µ ±  2%        ~ (p=0.105 n=10)
+InspectV2-12              8.381µ ± 11%   7.514µ ±  5%  -10.35% (p=0.019 n=10)
+InspectHybrid-12          10.51µ ±  3%   10.18µ ±  5%        ~ (p=0.089 n=10)
+InspectMetadataHeavy-12   899.4µ ±  1%   904.7µ ± 10%        ~ (p=0.853 n=10)
+geomean                   22.95µ         22.00µ         -4.12%
+
+                        │ baseline.txt │               raw.txt                │
+                        │     B/op     │     B/op      vs base                │
+InspectV1-12              4.213Ki ± 0%   3.963Ki ± 0%   -5.93% (p=0.000 n=10)
+InspectV2-12              12.09Ki ± 0%   11.84Ki ± 0%   -2.07% (p=0.000 n=10)
+InspectHybrid-12          13.71Ki ± 0%   13.21Ki ± 0%   -3.65% (p=0.000 n=10)
+InspectMetadataHeavy-12   819.2Ki ± 0%   563.1Ki ± 0%  -31.27% (p=0.000 n=10)
+geomean                   27.51Ki        24.31Ki       -11.62%
+
+                        │ baseline.txt │              raw.txt               │
+                        │  allocs/op   │  allocs/op   vs base               │
+InspectV1-12                63.00 ± 0%    62.00 ± 0%  -1.59% (p=0.000 n=10)
+InspectV2-12                134.0 ± 0%    133.0 ± 0%  -0.75% (p=0.000 n=10)
+InspectHybrid-12            178.0 ± 0%    176.0 ± 0%  -1.12% (p=0.000 n=10)
+InspectMetadataHeavy-12    14.93k ± 0%   13.91k ± 0%  -6.86% (p=0.000 n=10)
+geomean                     387.0         376.9       -2.61%
