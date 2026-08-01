@@ -55,6 +55,17 @@ func TestClientFetchAndCacheValidation(t *testing.T) {
 	}
 }
 
+func TestValidateMetainfoContentType(t *testing.T) {
+	for _, mediaType := range []string{"", "application/x-bittorrent", "Application/Octet-Stream"} {
+		if err := ValidateMetainfoContentType(mediaType); err != nil {
+			t.Fatalf("accepted content type %q: %v", mediaType, err)
+		}
+	}
+	if err := ValidateMetainfoContentType("text/html"); err == nil {
+		t.Fatal("text/html accepted as torrent metadata")
+	}
+}
+
 func TestClientRejectsUnsafeOriginsAndPaths(t *testing.T) {
 	for _, origin := range []string{
 		"http://example.com",
@@ -149,8 +160,10 @@ func TestClientVerifiesTLS(t *testing.T) {
 	defer client.http.CloseIdleConnections()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if _, err := client.Fetch(ctx, "/", FetchOptions{MaxBody: 16}); err == nil {
+	if _, err := client.Fetch(ctx, "/private/path?token=do-not-log", FetchOptions{MaxBody: 16}); err == nil {
 		t.Fatal("fetch with an untrusted server certificate succeeded")
+	} else if strings.Contains(err.Error(), "private/path") || strings.Contains(err.Error(), "do-not-log") {
+		t.Fatalf("request target leaked in error: %v", err)
 	}
 }
 

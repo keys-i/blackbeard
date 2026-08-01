@@ -54,6 +54,18 @@ type Response struct {
 	NotModified  bool
 }
 
+// ValidateMetainfoContentType accepts the media types used for torrent
+// metainfo. An absent type remains acceptable because several catalogues omit
+// it; the bencode boundary still validates the body before use.
+func ValidateMetainfoContentType(mediaType string) error {
+	switch strings.ToLower(mediaType) {
+	case "", "application/x-bittorrent", "application/octet-stream":
+		return nil
+	default:
+		return fmt.Errorf("unexpected torrent metainfo content type %q", mediaType)
+	}
+}
+
 // RateLimitError reports a 429 without hiding a sleep inside the HTTP layer.
 type RateLimitError struct {
 	RetryAfter time.Duration
@@ -192,6 +204,10 @@ func (c *Client) Fetch(ctx context.Context, path string, opts FetchOptions) (Res
 
 	resp, err := c.http.Do(req)
 	if err != nil {
+		var requestError *url.Error
+		if errors.As(err, &requestError) {
+			err = requestError.Err
+		}
 		return result, fmt.Errorf("fetch provider resource: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()

@@ -74,12 +74,17 @@ jobs:
         run: |
           mkdir -p ../profiles
           package="$(grep -Rl --include='*_test.go' '^func BenchmarkOverall' . | head -n 1 | xargs -r dirname || true)"
+          benchmark='^BenchmarkOverall$'
+          if [[ -z "$package" ]]; then
+            package="$(grep -Rl --include='*_test.go' '^func BenchmarkInspectMetadataHeavy' . | head -n 1 | xargs -r dirname || true)"
+            benchmark='^BenchmarkInspectMetadataHeavy$'
+          fi
           if [[ -n "$package" ]]; then
-            go test "./${package#./}" -run '^$' -bench '^BenchmarkOverall$' -benchtime=3s \
+            go test "./${package#./}" -run '^$' -bench "$benchmark" -benchtime=3s \
               -cpuprofile ../profiles/cpu.pprof -memprofile ../profiles/heap.pprof \
               -trace ../profiles/trace.out
           else
-            echo "No BenchmarkOverall profile target in this slice." > ../profiles/README.txt
+            echo "No representative profile target in this slice." > ../profiles/README.txt
           fi
       - name: Measure portable binary
         working-directory: src
@@ -107,7 +112,7 @@ jobs:
             table "Overall" '^BenchmarkOverall'
             table "Query, parser, and output" '^Benchmark(Query|Parse|Parser|Tokenize|Unit|Metadata|Sanitize|Dedupe|Ranking|Config|Bencode|JSON|NDJSON|Table)'
             table "Index and search" '^Benchmark(Index|Search|Provider|Cache|Bleve|Semantic)'
-            table "Torrent engine" '^Benchmark(Torrent|Magnet|Piece|Verify|Resume|Seed|Transfer)'
+            table "Torrent engine" '^Benchmark(Torrent|Inspect|ValidatePaths|Magnet|Piece|Verify|Resume|Seed|Transfer)'
             table "Hashing and storage" '^Benchmark(Hash|Storage|Create)'
             table "Streaming" '^Benchmark(Stream|Range|Seek)'
             table "TUI" '^Benchmark(TUI|Render|Update)'

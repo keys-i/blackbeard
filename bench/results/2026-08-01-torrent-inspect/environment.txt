@@ -1,0 +1,17 @@
+date: 2026-08-02
+go: go1.26.5 darwin/arm64
+os: macOS 26.5.2 (25F84)
+cpu: Apple M3 Pro
+logical CPUs / GOMAXPROCS: 12 / 12
+memory: 38654705664 bytes
+power: AC, battery charged, lowpowermode=0
+filesystem cache: warm; no cache flush
+cgo: disabled
+build flags: -trimpath -ldflags='-X github.com/keys-i/blackbeard/src/internal/version.Version=benchmark'
+security-correct baseline: 45f0caa0bc7c4cb09599d865cbcd6f51853fe626 with baseline.patch applied
+baseline patch sha256: e3bd9536d3ea2e29b7c7fd3365273d25b664d82ae78131bc35d23edfb230daf4
+measured implementation: 45f0caa0bc7c4cb09599d865cbcd6f51853fe626
+pre-feature binary baseline: 626c507e449ad57db8f55b4b98a5473beb0c1b9f
+binary VCS state: before vcs.modified=false; after vcs.modified=false
+benchmark command: go test -run '^$' -bench '^BenchmarkInspect(V1|V2|Hybrid|MetadataHeavy)$' -benchmem -benchtime=500ms -count=10 ./internal/torrent
+benchstat: golang.org/x/perf v0.0.0-20260709024250-82a0b07e230d

@@ -162,10 +162,12 @@ jobs:
         with:
           go-version-file: src/go.mod
           cache-dependency-path: src/go.sum
-      - name: Run catalogue generation safety tests
+      - name: Run path safety tests
         env:
           CGO_ENABLED: "0"
-        run: go test -shuffle=on ./internal/index -run 'Test(Open|FirstRebuild|FailedInitial|Generation|RebuildRejects|RebuildDoesNotRemove|FailedRebuild)'
+        run: |
+          go test -shuffle=on ./internal/index -run 'Test(Open|FirstRebuild|FailedInitial|Generation|RebuildRejects|RebuildDoesNotRemove|FailedRebuild)'
+          go test -shuffle=on ./internal/torrent
 
   build:
     name: Build ${{ matrix.goos }}/${{ matrix.goarch }}

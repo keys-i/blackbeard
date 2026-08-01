@@ -431,11 +431,11 @@ func TestContentTypes(t *testing.T) {
 		}
 	}
 	for _, mediaType := range []string{"", "application/x-bittorrent", "application/octet-stream"} {
-		if err := validateTorrentContentType(mediaType); err != nil {
+		if err := provider.ValidateMetainfoContentType(mediaType); err != nil {
 			t.Errorf("torrent %q: %v", mediaType, err)
 		}
 	}
-	if validateXMLContentType("text/html") == nil || validateTorrentContentType("text/plain") == nil {
+	if validateXMLContentType("text/html") == nil || provider.ValidateMetainfoContentType("text/plain") == nil {
 		t.Fatal("unexpected content type accepted")
 	}
 }

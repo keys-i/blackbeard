@@ -5,8 +5,9 @@
 [![QA](https://github.com/keys-i/blackbeard/actions/workflows/qa.yml/badge.svg)](https://github.com/keys-i/blackbeard/actions/workflows/qa.yml)
 [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Blackbeard is a fast, scriptable BitTorrent CLI and TUI for natural-language
-search across open catalogues and direct magnet or `.torrent` sources.
+Blackbeard is a scriptable BitTorrent CLI for deterministic natural-language
+search across open catalogues and bounded inspection of direct magnet or
+`.torrent` sources.
 
 > [!IMPORTANT]
 > Blackbeard does not bundle piracy indexes, bypass access controls, or make
@@ -16,9 +17,10 @@ search across open catalogues and direct magnet or `.torrent` sources.
 ## Status
 
 Blackbeard is under active development. Deterministic query parsing, Academic
-Torrents catalogue sync, and offline schema-versioned search are implemented.
-Live multi-provider search and torrent transfer remain unavailable until their
-fixture, security, and benchmark gates pass.
+Torrents catalogue sync, offline schema-versioned search, and direct-source
+metadata inspection are implemented. Live multi-provider search, torrent
+transfer, streaming, creation, seeding, and the TUI remain unavailable until
+their fixture, security, and benchmark gates pass.
 
 ## Build
 
@@ -42,6 +44,11 @@ go build -o build/blackbeard ./cmd/blackbeard
   "climate observations from academic"
 ./build/blackbeard --output json search --explain \
   '"public domain" animation under 4 GiB from archive'
+./build/blackbeard --output json inspect \
+  'magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567'
+./build/blackbeard inspect ~/Downloads/debian.torrent
+# Illustrative: replace this with a publisher's direct HTTPS .torrent URL.
+./build/blackbeard inspect https://example.org/catalogue/debian.torrent
 ```
 
 Versioned installs use release archives. Blackbeard does not publish a Go
