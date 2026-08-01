@@ -156,6 +156,31 @@ func TestSync304DoesNotRewriteCache(t *testing.T) {
 	}
 }
 
+func TestSyncDeadlineAfterCacheSaveIsNotReportedAsSuccess(t *testing.T) {
+	fetch := func(context.Context, string, provider.FetchOptions) (provider.Response, error) {
+		return provider.Response{Body: []byte(catalogXML(itemXML("Dataset", testHash, "42")))}, nil
+	}
+	catalog, err := newCatalog(fetch, blockingSaveCache{}, func(context.Context, []byte) (string, error) { return testHash, nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	if _, err := catalog.Sync(ctx); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("Sync() error = %v", err)
+	}
+}
+
+func TestNewSyncerDoesNotAdvertiseResolverCapability(t *testing.T) {
+	syncer, err := NewSyncer(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := syncer.(provider.Resolver); ok {
+		t.Fatal("sync-only provider advertises resolver capability")
+	}
+}
+
 func TestResolveVerifiesDownloadedMetainfo(t *testing.T) {
 	body := []byte("torrent metainfo")
 	fetches := 0
@@ -238,6 +263,44 @@ func TestResolveRejectsUntrustedRecordBeforeFetch(t *testing.T) {
 	}
 }
 
+func TestResolveIgnoresProviderSuppliedTorrentURL(t *testing.T) {
+	fetch := func(_ context.Context, path string, _ provider.FetchOptions) (provider.Response, error) {
+		if path != "/download/"+testHash+".torrent" {
+			t.Fatalf("fetch path = %q", path)
+		}
+		return provider.Response{Body: []byte("torrent")}, nil
+	}
+	catalog, err := newCatalog(fetch, &memoryCache{}, func(context.Context, []byte) (string, error) { return testHash, nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	source, err := catalog.Resolve(ctx, domain.Record{
+		Provider: "academic_torrents", SourceID: testHash, InfoHashV1: testHash,
+		TorrentURL: "https://evil.example/payload.torrent",
+	})
+	if err != nil || source.TorrentURL != origin+"/download/"+testHash+".torrent" {
+		t.Fatalf("source=%+v error=%v", source, err)
+	}
+}
+
+func TestSyncOnlyCatalogCannotResolve(t *testing.T) {
+	catalog, err := newSyncCatalog(func(context.Context, string, provider.FetchOptions) (provider.Response, error) {
+		t.Fatal("resolver fetched without a verifier")
+		return provider.Response{}, nil
+	}, &memoryCache{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	_, err = catalog.Resolve(ctx, domain.Record{Provider: "academic_torrents", SourceID: testHash, InfoHashV1: testHash})
+	if err == nil || !strings.Contains(err.Error(), "without a verifier") {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+}
+
 func TestResolveCancelsMetainfoVerification(t *testing.T) {
 	fetch := func(context.Context, string, provider.FetchOptions) (provider.Response, error) {
 		return provider.Response{Body: []byte("torrent")}, nil
@@ -265,10 +328,10 @@ func TestDiskCacheRoundTripAndTrailingData(t *testing.T) {
 	}
 	store := diskCache{dir: dir}
 	want := cacheState{SchemaVersion: cacheSchemaVersion, ETag: `"tag"`, Records: []domain.Record{record}}
-	if err := store.Save(want); err != nil {
+	if err := store.Save(context.Background(), want); err != nil {
 		t.Fatal(err)
 	}
-	got, err := store.Load()
+	got, err := store.Load(context.Background())
 	if err != nil || got.SchemaVersion != cacheSchemaVersion || got.ETag != want.ETag || len(got.Records) != 1 {
 		t.Fatalf("state=%+v error=%v", got, err)
 	}
@@ -280,7 +343,7 @@ func TestDiskCacheRoundTripAndTrailingData(t *testing.T) {
 	if err := os.WriteFile(path, append(data, []byte(`{}`)...), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Load(); err == nil {
+	if _, err := store.Load(context.Background()); err == nil {
 		t.Fatal("expected trailing JSON rejection")
 	}
 }
@@ -293,10 +356,10 @@ func TestDiskCacheRejectsForeignIdentity(t *testing.T) {
 	}
 	record.Provider = "internet_archive"
 	store := diskCache{dir: dir}
-	if err := store.Save(cacheState{SchemaVersion: cacheSchemaVersion, Records: []domain.Record{record}}); err != nil {
+	if err := store.Save(context.Background(), cacheState{SchemaVersion: cacheSchemaVersion, Records: []domain.Record{record}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Load(); err == nil {
+	if _, err := store.Load(context.Background()); err == nil {
 		t.Fatal("foreign cached identity was accepted")
 	}
 }
@@ -304,10 +367,10 @@ func TestDiskCacheRejectsForeignIdentity(t *testing.T) {
 func TestDiskCacheRejectsEmptyAndInjectedMetadata(t *testing.T) {
 	dir := t.TempDir()
 	store := diskCache{dir: dir}
-	if err := store.Save(cacheState{SchemaVersion: cacheSchemaVersion}); err != nil {
+	if err := store.Save(context.Background(), cacheState{SchemaVersion: cacheSchemaVersion}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Load(); err == nil {
+	if _, err := store.Load(context.Background()); err == nil {
 		t.Fatal("empty cache was accepted")
 	}
 	record, err := (catalogItem{Title: "Cached", InfoHash: testHash, Size: 9}).record()
@@ -315,11 +378,49 @@ func TestDiskCacheRejectsEmptyAndInjectedMetadata(t *testing.T) {
 		t.Fatal(err)
 	}
 	record.ContentKinds = []string{"dataset"}
-	if err := store.Save(cacheState{SchemaVersion: cacheSchemaVersion, Records: []domain.Record{record}}); err != nil {
+	if err := store.Save(context.Background(), cacheState{SchemaVersion: cacheSchemaVersion, Records: []domain.Record{record}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Load(); err == nil {
+	if _, err := store.Load(context.Background()); err == nil {
 		t.Fatal("cache metadata not supplied by the provider was accepted")
+	}
+}
+
+func TestDiskCacheDoesNotFollowSnapshotSymlink(t *testing.T) {
+	dir := t.TempDir()
+	outside := filepath.Join(t.TempDir(), "outside.json")
+	if err := os.WriteFile(outside, []byte("sentinel"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(dir, cacheFilename)); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+	store := diskCache{dir: dir}
+	if _, err := store.Load(context.Background()); err == nil {
+		t.Fatal("cache followed a snapshot symlink")
+	}
+	record, err := (catalogItem{Title: "Cached", InfoHash: testHash, Size: 9}).record()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Save(context.Background(), cacheState{SchemaVersion: cacheSchemaVersion, Records: []domain.Record{record}}); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(outside)
+	if err != nil || string(data) != "sentinel" {
+		t.Fatalf("outside file = %q, %v", data, err)
+	}
+}
+
+func TestDiskCacheHonorsCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	store := diskCache{dir: t.TempDir()}
+	if _, err := store.Load(ctx); !errors.Is(err, context.Canceled) {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if err := store.Save(ctx, cacheState{}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("Save() error = %v", err)
 	}
 }
 
@@ -378,9 +479,17 @@ type memoryCache struct {
 	saves   int
 }
 
-func (c *memoryCache) Load() (cacheState, error) { return c.state, c.loadErr }
+type blockingSaveCache struct{}
 
-func (c *memoryCache) Save(state cacheState) error {
+func (blockingSaveCache) Load(context.Context) (cacheState, error) { return cacheState{}, nil }
+func (blockingSaveCache) Save(ctx context.Context, _ cacheState) error {
+	<-ctx.Done()
+	return nil
+}
+
+func (c *memoryCache) Load(context.Context) (cacheState, error) { return c.state, c.loadErr }
+
+func (c *memoryCache) Save(_ context.Context, state cacheState) error {
 	c.saves++
 	c.state = state
 	return c.saveErr

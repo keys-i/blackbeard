@@ -1,0 +1,16 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/keys-i/blackbeard/src/internal/app
+cpu: Apple M3 Pro
+BenchmarkSearchOfflineCLI-12          10  10538554 ns/op  576447 B/op  4764 allocs/op
+BenchmarkSearchOfflineCLI-12          12   9771441 ns/op  584629 B/op  4745 allocs/op
+BenchmarkSearchOfflineCLI-12          10  10809346 ns/op  578520 B/op  4755 allocs/op
+BenchmarkSearchOfflineCLI-12          10  10091754 ns/op  577020 B/op  4737 allocs/op
+BenchmarkSearchOfflineCLI-12          10  10375892 ns/op  576812 B/op  4734 allocs/op
+BenchmarkSearchOfflineCLI-12          10  10126512 ns/op  574699 B/op  4748 allocs/op
+BenchmarkSearchOfflineCLI-12          10  10095925 ns/op  577102 B/op  4739 allocs/op
+BenchmarkSearchOfflineCLI-12          10  10834592 ns/op  584040 B/op  4759 allocs/op
+BenchmarkSearchOfflineCLI-12          13   9626122 ns/op  576961 B/op  4736 allocs/op
+BenchmarkSearchOfflineCLI-12          10  10618042 ns/op  580540 B/op  4740 allocs/op
+PASS
+ok  github.com/keys-i/blackbeard/src/internal/app  2.603s

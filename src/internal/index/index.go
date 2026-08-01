@@ -316,6 +316,77 @@ func verifyGeneration(path string, expected uint64) error {
 	return nil
 }
 
+// Records returns one copy of every normalized provider record in the live
+// generation. It exists so a provider refresh can replace only its own records
+// without deleting last-good records from other providers.
+func (s *Store) Records(ctx context.Context) ([]domain.Record, error) {
+	if ctx == nil {
+		return nil, errors.New("read catalogue records: nil context")
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed {
+		return nil, ErrClosed
+	}
+
+	seenGroups := make(map[string]struct{})
+	records := make([]domain.Record, 0)
+	request := bleve.NewSearchRequestOptions(bleve.NewMatchAllQuery(), batchSize, 0, false)
+	request.Fields = []string{"group", "sources"}
+	request.SortBy([]string{"_id"})
+	for {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		page, err := s.index.SearchInContext(ctx, request)
+		if err != nil {
+			return nil, fmt.Errorf("read catalogue records: %w", err)
+		}
+		for _, match := range page.Hits {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+			group, ok := match.Fields["group"].(string)
+			if !ok || group == "" {
+				return nil, errors.New("read catalogue records: corrupt group field")
+			}
+			if _, ok := seenGroups[group]; ok {
+				continue
+			}
+			encoded, ok := match.Fields["sources"].(string)
+			if !ok {
+				return nil, errors.New("read catalogue records: corrupt sources field")
+			}
+			var sources []domain.Record
+			if err := json.Unmarshal([]byte(encoded), &sources); err != nil {
+				return nil, fmt.Errorf("read catalogue records: decode sources: %w", err)
+			}
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+			if len(sources) == 0 || len(records) > MaxRecords-len(sources) {
+				return nil, errors.New("read catalogue records: invalid source count")
+			}
+			seenGroups[group] = struct{}{}
+			records = append(records, sources...)
+		}
+		if len(page.Hits) < batchSize {
+			break
+		}
+		request.From += batchSize
+	}
+	slices.SortFunc(records, func(a, b domain.Record) int {
+		if order := strings.Compare(a.Provider, b.Provider); order != 0 {
+			return order
+		}
+		return strings.Compare(a.SourceID, b.SourceID)
+	})
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return records, nil
+}
+
 // Search evaluates lexical terms with exact structured filters, then performs
 // transitive infohash deduplication through precomputed group IDs.
 func (s *Store) Search(ctx context.Context, ast productquery.AST, limit int) ([]Hit, error) {
