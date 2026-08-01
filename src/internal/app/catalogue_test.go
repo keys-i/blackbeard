@@ -256,6 +256,15 @@ func TestFailedFirstSyncDoesNotInitializeCatalogue(t *testing.T) {
 			if err == nil || stdout != "" || stderr != "" || !strings.Contains(err.Error(), "providers sync") {
 				t.Fatalf("offline search stdout=%q stderr=%q err=%v", stdout, stderr, err)
 			}
+			paths, err := resolveCataloguePaths(deps)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, candidate := range []string{paths.index, paths.index + ".previous"} {
+				if _, err := os.Lstat(candidate); !errors.Is(err, os.ErrNotExist) {
+					t.Fatalf("incomplete generation %q remains: %v", candidate, err)
+				}
+			}
 		})
 	}
 }
@@ -280,6 +289,49 @@ func TestSyncRejectsSymlinkedApplicationCache(t *testing.T) {
 	entries, err := os.ReadDir(outside)
 	if err != nil || len(entries) != 0 {
 		t.Fatalf("outside cache entries=%v err=%v", entries, err)
+	}
+}
+
+func TestCommandsRejectLinkedCatalogueGeneration(t *testing.T) {
+	t.Parallel()
+
+	for _, generation := range []struct{ name, suffix string }{{"live", ""}, {"previous", ".previous"}} {
+		t.Run(generation.name, func(t *testing.T) {
+			cacheRoot := t.TempDir()
+			deps := testCatalogueDeps(cacheRoot, func(string) (provider.CatalogSyncer, error) {
+				t.Fatal("sync constructed provider for unsafe catalogue generation")
+				return nil, nil
+			})
+			paths, err := resolveCataloguePaths(deps)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.MkdirAll(filepath.Dir(paths.index), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			outside := t.TempDir()
+			sentinel := filepath.Join(outside, "sentinel")
+			if err := os.WriteFile(sentinel, []byte("unchanged"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			candidate := paths.index + generation.suffix
+			if err := os.Symlink(outside, candidate); err != nil {
+				t.Skipf("symlink unavailable: %v", err)
+			}
+
+			for _, args := range [][]string{{"providers", "sync"}, {"search", "--offline", "dataset"}} {
+				stdout, stderr, err := runCLI(context.Background(), deps, args...)
+				if err == nil || stdout != "" || stderr != "" {
+					t.Fatalf("run(%q) stdout=%q stderr=%q err=%v", args, stdout, stderr, err)
+				}
+			}
+			if data, err := os.ReadFile(sentinel); err != nil || string(data) != "unchanged" {
+				t.Fatalf("outside sentinel = %q, %v", data, err)
+			}
+			if info, err := os.Lstat(candidate); err != nil || info.Mode()&os.ModeSymlink == 0 {
+				t.Fatalf("unsafe generation was mutated: %v, %v", info, err)
+			}
+		})
 	}
 }
 

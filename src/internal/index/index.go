@@ -43,6 +43,7 @@ const (
 
 var (
 	ErrClosed         = errors.New("catalogue index is closed")
+	ErrNotInitialized = errors.New("catalogue index is not initialized")
 	ErrInvalidQuery   = errors.New("invalid catalogue query")
 	ErrSourceConflict = errors.New("catalogue source has conflicting infohashes")
 )
@@ -168,65 +169,116 @@ func (c *hitCollector) results() []Hit {
 	return results
 }
 
-// Open opens an existing index or creates an empty one at path.
+// Open opens an existing index. An absent index remains uninitialized until
+// its first successful rebuild.
 func Open(path string) (*Store, error) {
-	if strings.TrimSpace(path) == "" {
-		return nil, errors.New("open catalogue index: empty path")
-	}
-	path = filepath.Clean(path)
-	if !filepath.IsAbs(path) {
-		return nil, errors.New("open catalogue index: path must be absolute")
+	var err error
+	path, err = cleanIndexPath(path)
+	if err != nil {
+		return nil, fmt.Errorf("open catalogue index: %w", err)
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return nil, fmt.Errorf("create catalogue index parent: %w", err)
 	}
+	if err := validateGenerationNodes(path); err != nil {
+		return nil, err
+	}
 	// ponytail: locking is process-local; add a lockfile only when concurrent
 	// Blackbeard processes need to rebuild the same catalogue.
 	previous := path + ".previous"
-	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-		if _, previousErr := os.Stat(previous); previousErr == nil {
-			if err := os.Rename(previous, path); err != nil {
-				return nil, fmt.Errorf("recover previous catalogue index: %w", err)
-			}
-		}
+	liveExists, err := nodeExists(path)
+	if err != nil {
+		return nil, fmt.Errorf("inspect catalogue index: %w", err)
 	}
-	_, statErr := os.Stat(path)
-	liveExists := statErr == nil
-	if statErr != nil && !errors.Is(statErr, os.ErrNotExist) {
-		return nil, fmt.Errorf("inspect catalogue index: %w", statErr)
+	var liveErr error
+	if liveExists {
+		idx, count, openErr := openGeneration(path)
+		if openErr == nil {
+			if count > 0 {
+				return &Store{path: path, index: idx}, nil
+			}
+			if err := discardEmptyGeneration(path, idx); err != nil {
+				return nil, fmt.Errorf("discard empty live catalogue index: %w", err)
+			}
+			liveExists = false
+		} else {
+			liveErr = fmt.Errorf("open live catalogue index: %w", openErr)
+		}
 	}
 
-	idx, err := bleve.Open(path)
-	if err != nil && (liveExists || !errors.Is(err, bleve.ErrorIndexPathDoesNotExist)) {
-		original := fmt.Errorf("open live catalogue index: %w", err)
-		if recoveryErr := recoverPrevious(path); recoveryErr != nil {
-			return nil, errors.Join(original, recoveryErr)
-		}
-		idx, err = bleve.Open(path)
-		if err != nil {
-			return nil, errors.Join(original, fmt.Errorf("open recovered catalogue index: %w", err))
-		}
-	}
-	if errors.Is(err, bleve.ErrorIndexPathDoesNotExist) {
-		mapping, mappingErr := indexMapping()
-		if mappingErr != nil {
-			return nil, mappingErr
-		}
-		idx, err = bleve.New(path, mapping)
-	}
+	previousExists, err := nodeExists(previous)
 	if err != nil {
-		return nil, fmt.Errorf("open catalogue index: %w", err)
+		return nil, errors.Join(liveErr, fmt.Errorf("inspect previous catalogue index: %w", err))
+	}
+	if !previousExists {
+		if liveErr != nil {
+			return nil, liveErr
+		}
+		return &Store{path: path}, nil
+	}
+	previousIndex, count, err := openGeneration(previous)
+	if err != nil {
+		return nil, errors.Join(liveErr, fmt.Errorf("open previous catalogue index: %w", err))
+	}
+	if count == 0 {
+		if err := discardEmptyGeneration(previous, previousIndex); err != nil {
+			return nil, errors.Join(liveErr, fmt.Errorf("discard empty previous catalogue index: %w", err))
+		}
+		if liveErr != nil {
+			return nil, liveErr
+		}
+		return &Store{path: path}, nil
+	}
+	if err := previousIndex.Close(); err != nil {
+		return nil, errors.Join(liveErr, fmt.Errorf("close previous catalogue index: %w", err))
+	}
+	if liveExists {
+		if err := recoverPrevious(path); err != nil {
+			return nil, errors.Join(liveErr, err)
+		}
+	} else if err := os.Rename(previous, path); err != nil {
+		return nil, fmt.Errorf("recover previous catalogue index: %w", err)
+	}
+	idx, err := bleve.Open(path)
+	if err != nil {
+		return nil, errors.Join(liveErr, fmt.Errorf("open recovered catalogue index: %w", err))
 	}
 	return &Store{path: path, index: idx}, nil
 }
 
+func openGeneration(path string) (bleve.Index, uint64, error) {
+	idx, err := bleve.Open(path)
+	if err != nil {
+		return nil, 0, err
+	}
+	count, countErr := idx.DocCount()
+	if countErr != nil {
+		return nil, 0, errors.Join(countErr, wrapError("close catalogue index", idx.Close()))
+	}
+	return idx, count, nil
+}
+
+func discardEmptyGeneration(path string, idx bleve.Index) error {
+	if err := idx.Close(); err != nil {
+		return fmt.Errorf("close catalogue index: %w", err)
+	}
+	return removeGeneration(path)
+}
+
 func recoverPrevious(path string) error {
+	if err := validateGenerationNodes(path); err != nil {
+		return err
+	}
 	previous := path + ".previous"
-	if _, err := os.Stat(previous); err != nil {
+	previousExists, err := nodeExists(previous)
+	if err != nil {
 		return fmt.Errorf("recover previous catalogue index: %w", err)
 	}
+	if !previousExists {
+		return fmt.Errorf("recover previous catalogue index: %w", os.ErrNotExist)
+	}
 	failed := path + ".failed"
-	if err := os.RemoveAll(failed); err != nil {
+	if err := removeGeneration(failed); err != nil {
 		return fmt.Errorf("remove stale failed catalogue index: %w", err)
 	}
 	if err := os.Rename(path, failed); err != nil {
@@ -245,6 +297,9 @@ func (s *Store) Rebuild(ctx context.Context, records []domain.Record) error {
 	if ctx == nil {
 		return errors.New("rebuild catalogue index: nil context")
 	}
+	if len(records) == 0 {
+		return errors.New("rebuild catalogue index: no records")
+	}
 	if len(records) > MaxRecords {
 		return fmt.Errorf("rebuild catalogue index: %d records exceeds %d", len(records), MaxRecords)
 	}
@@ -259,6 +314,9 @@ func (s *Store) Rebuild(ctx context.Context, records []domain.Record) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	if err := validateGenerationNodes(s.path); err != nil {
+		return err
+	}
 
 	documents, err := prepare(ctx, records)
 	if err != nil {
@@ -269,13 +327,13 @@ func (s *Store) Rebuild(ctx context.Context, records []domain.Record) error {
 		return err
 	}
 	buildDirectory := s.path + ".building"
-	if err := os.RemoveAll(buildDirectory); err != nil {
+	if err := removeGeneration(buildDirectory); err != nil {
 		return fmt.Errorf("remove stale catalogue index build: %w", err)
 	}
 	if err := os.MkdirAll(buildDirectory, 0o700); err != nil {
 		return fmt.Errorf("create catalogue index build directory: %w", err)
 	}
-	defer func() { _ = os.RemoveAll(buildDirectory) }()
+	defer func() { _ = removeGeneration(buildDirectory) }()
 	temporary := filepath.Join(buildDirectory, "catalogue.bleve")
 	building, err := bleve.New(temporary, mapping)
 	if err != nil {
@@ -327,6 +385,9 @@ func (s *Store) Records(ctx context.Context) ([]domain.Record, error) {
 	defer s.mu.RUnlock()
 	if s.closed {
 		return nil, ErrClosed
+	}
+	if s.index == nil {
+		return nil, ErrNotInitialized
 	}
 
 	seenGroups := make(map[string]struct{})
@@ -403,6 +464,9 @@ func (s *Store) Search(ctx context.Context, ast productquery.AST, limit int) ([]
 	defer s.mu.RUnlock()
 	if s.closed {
 		return nil, ErrClosed
+	}
+	if s.index == nil {
+		return nil, ErrNotInitialized
 	}
 
 	collector := newHitCollector(limit, ast.Order)
@@ -493,6 +557,9 @@ func (s *Store) Close() error {
 		return nil
 	}
 	s.closed = true
+	if s.index == nil {
+		return nil
+	}
 	if err := s.index.Close(); err != nil {
 		return fmt.Errorf("close catalogue index: %w", err)
 	}
@@ -505,8 +572,35 @@ func (s *Store) replace(temporary string) error {
 	if s.closed {
 		return ErrClosed
 	}
+	if err := validateGenerationNodes(s.path); err != nil {
+		return err
+	}
+	if s.index == nil {
+		for _, candidate := range []string{s.path, s.path + ".previous"} {
+			exists, err := nodeExists(candidate)
+			if err != nil {
+				return fmt.Errorf("inspect initial catalogue index: %w", err)
+			}
+			if exists {
+				return errors.New("activate initial catalogue index: generation already exists")
+			}
+		}
+		if err := os.Rename(temporary, s.path); err != nil {
+			return fmt.Errorf("activate initial catalogue index: %w", err)
+		}
+		idx, err := bleve.Open(s.path)
+		if err != nil {
+			rollbackErr := os.Rename(s.path, temporary)
+			return errors.Join(
+				fmt.Errorf("open initial catalogue index: %w", err),
+				wrapError("restore initial catalogue build", rollbackErr),
+			)
+		}
+		s.index = idx
+		return nil
+	}
 	previous := s.path + ".previous"
-	if err := os.RemoveAll(previous); err != nil {
+	if err := removeGeneration(previous); err != nil {
 		return fmt.Errorf("remove stale catalogue index backup: %w", err)
 	}
 	if err := s.index.Close(); err != nil {
@@ -551,6 +645,55 @@ func wrapError(message string, err error) error {
 		return nil
 	}
 	return fmt.Errorf("%s: %w", message, err)
+}
+
+func cleanIndexPath(path string) (string, error) {
+	if strings.TrimSpace(path) == "" {
+		return "", errors.New("empty path")
+	}
+	path = filepath.Clean(path)
+	if !filepath.IsAbs(path) {
+		return "", errors.New("path must be absolute")
+	}
+	return path, nil
+}
+
+func validateGenerationNodes(path string) error {
+	for _, suffix := range []string{"", ".previous", ".building", ".failed"} {
+		candidate := path + suffix
+		if _, err := nodeExists(candidate); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func nodeExists(path string) (bool, error) {
+	info, err := os.Lstat(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("inspect catalogue generation %q: %w", path, err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return false, fmt.Errorf("catalogue generation %q is a symbolic link", path)
+	}
+	if !info.IsDir() {
+		return false, fmt.Errorf("catalogue generation %q is not a directory", path)
+	}
+	return true, nil
+}
+
+func removeGeneration(path string) error {
+	exists, err := nodeExists(path)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return nil
+	}
+	return os.RemoveAll(path)
 }
 
 func indexMapping() (mapping.IndexMapping, error) {

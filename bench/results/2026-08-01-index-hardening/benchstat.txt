@@ -1,0 +1,21 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/keys-i/blackbeard/src/internal/index
+cpu: Apple M3 Pro
+                  │  before.txt  │              after.txt               │
+                  │    sec/op    │    sec/op     vs base                │
+IndexRebuild-12     152.5m ± 11%   114.1m ± 10%  -25.14% (p=0.000 n=10)
+SearchColdOpen-12   10.79m ±  8%   10.55m ± 24%        ~ (p=0.579 n=10)
+geomean             40.56m         34.70m        -14.44%
+
+                  │  before.txt  │              after.txt              │
+                  │     B/op     │     B/op      vs base               │
+IndexRebuild-12     27.72Mi ± 0%   27.53Mi ± 4%       ~ (p=0.315 n=10)
+SearchColdOpen-12   2.554Mi ± 1%   2.524Mi ± 2%       ~ (p=0.063 n=10)
+geomean             8.414Mi        8.336Mi       -0.93%
+
+                  │ before.txt  │              after.txt              │
+                  │  allocs/op  │  allocs/op    vs base               │
+IndexRebuild-12     317.9k ± 0%   317.4k ±  6%  -0.17% (p=0.001 n=10)
+SearchColdOpen-12   19.41k ± 4%   18.21k ± 15%  -6.17% (p=0.023 n=10)
+geomean             78.56k        76.03k        -3.22%

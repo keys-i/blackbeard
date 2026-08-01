@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/blevesearch/bleve/v2"
 	"github.com/keys-i/blackbeard/src/internal/domain"
 	productquery "github.com/keys-i/blackbeard/src/internal/query"
 )
@@ -461,6 +462,250 @@ func TestRebuildRemovesStaleDeterministicBuild(t *testing.T) {
 	}
 }
 
+func TestOpenLeavesAbsentCatalogueUninitialized(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "catalogue.bleve")
+	store, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(path); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("Open created live generation: %v", err)
+	}
+	if _, err := store.Records(context.Background()); !errors.Is(err, ErrNotInitialized) {
+		t.Fatalf("Records() error = %v", err)
+	}
+	ast, _ := productquery.Parse("dataset")
+	if _, err := store.Search(context.Background(), ast, 10); !errors.Is(err, ErrNotInitialized) {
+		t.Fatalf("Search() error = %v", err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestOpenDiscardsLegacyEmptyGenerations(t *testing.T) {
+	t.Parallel()
+
+	for _, suffix := range []string{"", ".previous"} {
+		t.Run(suffix, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "catalogue.bleve")
+			createEmptyGeneration(t, path+suffix)
+			store, err := Open(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = store.Close() })
+			if _, err := store.Records(context.Background()); !errors.Is(err, ErrNotInitialized) {
+				t.Fatalf("Records() error = %v", err)
+			}
+			for _, candidate := range []string{path, path + ".previous"} {
+				if _, err := os.Lstat(candidate); !errors.Is(err, os.ErrNotExist) {
+					t.Fatalf("empty generation %q remains: %v", candidate, err)
+				}
+			}
+		})
+	}
+}
+
+func TestOpenDoesNotPromoteEmptyPreviousOverCorruptLive(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "catalogue.bleve")
+	if err := os.Mkdir(path, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	corrupt := filepath.Join(path, "corrupt")
+	if err := os.WriteFile(corrupt, []byte("unchanged"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	createEmptyGeneration(t, path+".previous")
+	if _, err := Open(path); err == nil || !strings.Contains(err.Error(), "open live catalogue index") {
+		t.Fatalf("Open() error = %v", err)
+	}
+	if data, err := os.ReadFile(corrupt); err != nil || string(data) != "unchanged" {
+		t.Fatalf("corrupt live generation changed: %q, %v", data, err)
+	}
+	if _, err := os.Lstat(path + ".previous"); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("empty previous generation remains: %v", err)
+	}
+}
+
+func TestOpenRecoversNonEmptyPreviousFromEmptyLive(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "catalogue.bleve")
+	createEmptyGeneration(t, path)
+	buildClosedIndex(t, path+".previous")
+	store, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	ast, _ := productquery.Parse("stable")
+	if hits, err := store.Search(context.Background(), ast, 10); err != nil || !slices.Equal(sourceIDs(hits), []string{"stable"}) {
+		t.Fatalf("recovered generation = %#v, %v", hits, err)
+	}
+	if _, err := os.Lstat(path + ".previous"); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("previous generation remains after recovery: %v", err)
+	}
+}
+
+func TestRebuildRejectsEmptyCatalogue(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "catalogue.bleve")
+	store, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	if err := store.Rebuild(context.Background(), nil); err == nil || !strings.Contains(err.Error(), "no records") {
+		t.Fatalf("Rebuild() error = %v", err)
+	}
+	if _, err := os.Lstat(path); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("empty rebuild created generation: %v", err)
+	}
+}
+
+func TestFirstRebuildPublishesWithoutPrevious(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "catalogue.bleve")
+	store, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	if err := store.Rebuild(context.Background(), []domain.Record{record("debian", "first", "First payload")}); err != nil {
+		t.Fatal(err)
+	}
+	if info, err := os.Lstat(path); err != nil || !info.IsDir() {
+		t.Fatalf("live generation = %v, %v", info, err)
+	}
+	if _, err := os.Lstat(path + ".previous"); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("first rebuild left previous generation: %v", err)
+	}
+}
+
+func TestFailedInitialRebuildLeavesNoGeneration(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "catalogue.bleve")
+	store, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	bad := record("debian", "bad", "Bad payload")
+	bad.InfoHashV1 = "not-a-hash"
+	if err := store.Rebuild(context.Background(), []domain.Record{bad}); !errors.Is(err, domain.ErrInvalidRecord) {
+		t.Fatalf("Rebuild() error = %v", err)
+	}
+	for _, candidate := range []string{path, path + ".previous"} {
+		if _, err := os.Lstat(candidate); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("failed generation %q remains: %v", candidate, err)
+		}
+	}
+}
+
+func TestGenerationSymlinksAreRejectedWithoutMutation(t *testing.T) {
+	t.Parallel()
+
+	for _, suffix := range []string{"", ".previous", ".building", ".failed"} {
+		t.Run(suffix, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "catalogue.bleve")
+			if suffix != "" {
+				buildClosedIndex(t, path)
+			}
+			link, sentinel := generationLink(t, path, suffix)
+			if _, err := Open(path); err == nil || !strings.Contains(err.Error(), "symbolic link") {
+				t.Fatalf("Open() error = %v", err)
+			}
+			assertGenerationLink(t, link, sentinel)
+		})
+	}
+}
+
+func TestGenerationFilesAreRejectedWithoutMutation(t *testing.T) {
+	t.Parallel()
+
+	for _, suffix := range []string{"", ".previous", ".building", ".failed"} {
+		t.Run(suffix, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "catalogue.bleve")
+			if suffix != "" {
+				buildClosedIndex(t, path)
+			}
+			candidate := path + suffix
+			if err := os.WriteFile(candidate, []byte("unchanged"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := Open(path); err == nil || !strings.Contains(err.Error(), "not a directory") {
+				t.Fatalf("Open() error = %v", err)
+			}
+			if data, err := os.ReadFile(candidate); err != nil || string(data) != "unchanged" {
+				t.Fatalf("generation file changed: %q, %v", data, err)
+			}
+		})
+	}
+}
+
+func TestRebuildRejectsSymlinkedGenerationWithoutLosingLiveIndex(t *testing.T) {
+	t.Parallel()
+
+	for _, suffix := range []string{".previous", ".building", ".failed"} {
+		t.Run(suffix, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "catalogue.bleve")
+			store, err := Open(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = store.Close() })
+			if err := store.Rebuild(context.Background(), []domain.Record{record("debian", "stable", "Stable payload")}); err != nil {
+				t.Fatal(err)
+			}
+			link, sentinel := generationLink(t, path, suffix)
+			if err := store.Rebuild(context.Background(), []domain.Record{record("debian", "fresh", "Fresh payload")}); err == nil || !strings.Contains(err.Error(), "symbolic link") {
+				t.Fatalf("Rebuild() error = %v", err)
+			}
+			ast, _ := productquery.Parse("stable")
+			if hits, err := store.Search(context.Background(), ast, 10); err != nil || !slices.Equal(sourceIDs(hits), []string{"stable"}) {
+				t.Fatalf("live generation after rejection = %#v, %v", hits, err)
+			}
+			assertGenerationLink(t, link, sentinel)
+		})
+	}
+}
+
+func TestRebuildDoesNotRemoveRegularBuildingNode(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "catalogue.bleve")
+	store, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	if err := store.Rebuild(context.Background(), []domain.Record{record("debian", "stable", "Stable payload")}); err != nil {
+		t.Fatal(err)
+	}
+	building := path + ".building"
+	if err := os.WriteFile(building, []byte("unchanged"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Rebuild(context.Background(), []domain.Record{record("debian", "fresh", "Fresh payload")}); err == nil || !strings.Contains(err.Error(), "not a directory") {
+		t.Fatalf("Rebuild() error = %v", err)
+	}
+	if data, err := os.ReadFile(building); err != nil || string(data) != "unchanged" {
+		t.Fatalf("building node changed: %q, %v", data, err)
+	}
+	ast, _ := productquery.Parse("stable")
+	if hits, err := store.Search(context.Background(), ast, 10); err != nil || !slices.Equal(sourceIDs(hits), []string{"stable"}) {
+		t.Fatalf("live generation after rejection = %#v, %v", hits, err)
+	}
+}
+
 func TestFailedRebuildPreservesOldGenerationAndReopens(t *testing.T) {
 	t.Parallel()
 
@@ -517,7 +762,10 @@ func TestOpenRecoversVerifiedPreviousGeneration(t *testing.T) {
 	if err := os.RemoveAll(path); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(path, []byte("corrupt"), 0o600); err != nil {
+	if err := os.Mkdir(path, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(path, "corrupt"), []byte("corrupt"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	store, err = Open(path)
@@ -647,6 +895,59 @@ func BenchmarkSearchColdOpen(b *testing.B) {
 		if err := store.Close(); err != nil {
 			b.Fatal(err)
 		}
+	}
+}
+
+func buildClosedIndex(t *testing.T, path string) {
+	t.Helper()
+	store, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Rebuild(context.Background(), []domain.Record{record("debian", "stable", "Stable payload")}); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func createEmptyGeneration(t *testing.T, path string) {
+	t.Helper()
+	mapping, err := indexMapping()
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx, err := bleve.New(path, mapping)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := idx.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func generationLink(t *testing.T, path, suffix string) (string, string) {
+	t.Helper()
+	outside := t.TempDir()
+	sentinel := filepath.Join(outside, "sentinel")
+	if err := os.WriteFile(sentinel, []byte("unchanged"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	link := path + suffix
+	if err := os.Symlink(outside, link); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+	return link, sentinel
+}
+
+func assertGenerationLink(t *testing.T, link, sentinel string) {
+	t.Helper()
+	if info, err := os.Lstat(link); err != nil || info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("generation link changed: info=%v err=%v", info, err)
+	}
+	if data, err := os.ReadFile(sentinel); err != nil || string(data) != "unchanged" {
+		t.Fatalf("outside target changed: %q, %v", data, err)
 	}
 }
 

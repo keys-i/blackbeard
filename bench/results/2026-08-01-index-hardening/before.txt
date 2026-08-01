@@ -1,0 +1,26 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/keys-i/blackbeard/src/internal/index
+cpu: Apple M3 Pro
+BenchmarkIndexRebuild-12              1  176231000 ns/op  29141720 B/op  318585 allocs/op
+BenchmarkIndexRebuild-12              1  146267000 ns/op  29049800 B/op  317854 allocs/op
+BenchmarkIndexRebuild-12              1  151832667 ns/op  29051352 B/op  317903 allocs/op
+BenchmarkIndexRebuild-12              1  168906000 ns/op  29063128 B/op  318004 allocs/op
+BenchmarkIndexRebuild-12              1  147709542 ns/op  29053832 B/op  317903 allocs/op
+BenchmarkIndexRebuild-12              1  153093875 ns/op  29064464 B/op  317924 allocs/op
+BenchmarkIndexRebuild-12              1  158773417 ns/op  30142136 B/op  318076 allocs/op
+BenchmarkIndexRebuild-12              1  146564875 ns/op  29074416 B/op  317961 allocs/op
+BenchmarkIndexRebuild-12              1  148959541 ns/op  29070376 B/op  317958 allocs/op
+BenchmarkIndexRebuild-12              1  161314667 ns/op  29076144 B/op  317888 allocs/op
+BenchmarkSearchColdOpen-12           12    9985090 ns/op   2686272 B/op   19420 allocs/op
+BenchmarkSearchColdOpen-12           10   11022896 ns/op   2646756 B/op   18997 allocs/op
+BenchmarkSearchColdOpen-12           10   11269246 ns/op   2662461 B/op   19405 allocs/op
+BenchmarkSearchColdOpen-12           13   11523436 ns/op   2657086 B/op   20138 allocs/op
+BenchmarkSearchColdOpen-12           12    9089323 ns/op   2708034 B/op   19274 allocs/op
+BenchmarkSearchColdOpen-12           12    9918972 ns/op   2743664 B/op   20215 allocs/op
+BenchmarkSearchColdOpen-12           10   10795621 ns/op   2670004 B/op   19596 allocs/op
+BenchmarkSearchColdOpen-12           10   10912000 ns/op   2643783 B/op   18890 allocs/op
+BenchmarkSearchColdOpen-12           10   10780275 ns/op   2691105 B/op   19267 allocs/op
+BenchmarkSearchColdOpen-12           13   10002506 ns/op   2708863 B/op   20769 allocs/op
+PASS
+ok  github.com/keys-i/blackbeard/src/internal/index  4.716s

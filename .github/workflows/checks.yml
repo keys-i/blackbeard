@@ -144,6 +144,29 @@ jobs:
           cache-dependency-path: src/go.sum
       - run: go test -race -shuffle=on ./...
 
+  path-safety:
+    name: Path safety (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: src/go.mod
+          cache-dependency-path: src/go.sum
+      - name: Run catalogue generation safety tests
+        env:
+          CGO_ENABLED: "0"
+        run: go test -shuffle=on ./internal/index -run 'Test(Open|FirstRebuild|FailedInitial|Generation|RebuildRejects|RebuildDoesNotRemove|FailedRebuild)'
+
   build:
     name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
     runs-on: ubuntu-latest
@@ -214,7 +237,7 @@ jobs:
   summary:
     name: Check summary
     if: always()
-    needs: [structure, format, lint, test, race, build, modules]
+    needs: [structure, format, lint, test, race, path-safety, build, modules]
     runs-on: ubuntu-latest
     steps:
       - name: Write job summary
@@ -224,6 +247,7 @@ jobs:
           LINT: ${{ needs.lint.result }}
           TEST: ${{ needs.test.result }}
           RACE: ${{ needs.race.result }}
+          PATH_SAFETY: ${{ needs['path-safety'].result }}
           BUILD: ${{ needs.build.result }}
           MODULES: ${{ needs.modules.result }}
         run: |
@@ -237,6 +261,7 @@ jobs:
             echo "| Vet and lint | $LINT |"
             echo "| Tests | $TEST |"
             echo "| Race | $RACE |"
+            echo "| Path safety | $PATH_SAFETY |"
             echo "| Portable builds | $BUILD |"
             echo "| Module hygiene | $MODULES |"
           } >> "$GITHUB_STEP_SUMMARY"
