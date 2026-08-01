@@ -73,7 +73,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p ../profiles
-          package="$(rg -l '^func BenchmarkOverall' --glob '*_test.go' . | head -n 1 | xargs -r dirname)"
+          package="$(grep -Rl --include='*_test.go' '^func BenchmarkOverall' . | head -n 1 | xargs -r dirname || true)"
           if [[ -n "$package" ]]; then
             go test "./${package#./}" -run '^$' -bench '^BenchmarkOverall$' -benchtime=3s \
               -cpuprofile ../profiles/cpu.pprof -memprofile ../profiles/heap.pprof \
