@@ -1,0 +1,27 @@
+diff --git a/src/internal/torrent/inspect.go b/src/internal/torrent/inspect.go
+index b9ac858..f038276 100644
+--- a/src/internal/torrent/inspect.go
++++ b/src/internal/torrent/inspect.go
+@@ -702,7 +702,7 @@ func validateDistinctPaths(files []File) error {
+ 		parts := strings.Split(file.Path, "/")
+ 		folded := make([]string, len(parts))
+ 		for i, part := range parts {
+-			folded[i] = portablePathKey(fold, part)
++			folded[i] = norm.NFC.String(fold.String(part))
+ 		}
+ 		full := strings.Join(folded, "/")
+ 		if _, exists := paths[full]; exists {
+@@ -723,13 +723,6 @@ func validateDistinctPaths(files []File) error {
+ 	return nil
+ }
+ 
+-func portablePathKey(fold cases.Caser, value string) string {
+-	if strings.IndexFunc(value, func(r rune) bool { return r >= utf8.RuneSelf }) < 0 {
+-		return strings.ToLower(value)
+-	}
+-	return norm.NFC.String(fold.String(value))
+-}
+-
+ func cleanURLs(values []string, limit int, tracker bool) ([]string, error) {
+ 	if len(values) > limit {
+ 		return nil, fmt.Errorf("URL count exceeds %d", limit)

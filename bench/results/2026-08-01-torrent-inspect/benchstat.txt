@@ -2,26 +2,26 @@ goos: darwin
 goarch: arm64
 pkg: github.com/keys-i/blackbeard/src/internal/torrent
 cpu: Apple M3 Pro
-                        │ baseline.txt │               raw.txt                │
-                        │    sec/op    │    sec/op     vs base                │
-InspectV1-12              3.500µ ±  4%   3.387µ ±  2%        ~ (p=0.105 n=10)
-InspectV2-12              8.381µ ± 11%   7.514µ ±  5%  -10.35% (p=0.019 n=10)
-InspectHybrid-12          10.51µ ±  3%   10.18µ ±  5%        ~ (p=0.089 n=10)
-InspectMetadataHeavy-12   899.4µ ±  1%   904.7µ ± 10%        ~ (p=0.853 n=10)
-geomean                   22.95µ         22.00µ         -4.12%
+                        │ baseline.txt │              raw.txt               │
+                        │    sec/op    │   sec/op     vs base               │
+InspectV1-12               3.410µ ± 1%   3.283µ ± 1%  -3.72% (p=0.000 n=10)
+InspectV2-12               7.670µ ± 1%   7.485µ ± 1%  -2.41% (p=0.000 n=10)
+InspectHybrid-12           10.76µ ± 1%   10.32µ ± 3%  -4.03% (p=0.000 n=10)
+InspectMetadataHeavy-12    894.0µ ± 1%   822.8µ ± 1%  -7.96% (p=0.000 n=10)
+geomean                    22.39µ        21.37µ       -4.55%
 
                         │ baseline.txt │               raw.txt                │
                         │     B/op     │     B/op      vs base                │
 InspectV1-12              4.213Ki ± 0%   3.963Ki ± 0%   -5.93% (p=0.000 n=10)
-InspectV2-12              12.09Ki ± 0%   11.84Ki ± 0%   -2.07% (p=0.000 n=10)
-InspectHybrid-12          13.71Ki ± 0%   13.21Ki ± 0%   -3.65% (p=0.000 n=10)
-InspectMetadataHeavy-12   819.2Ki ± 0%   563.1Ki ± 0%  -31.27% (p=0.000 n=10)
-geomean                   27.51Ki        24.31Ki       -11.62%
+InspectV2-12              12.18Ki ± 0%   11.93Ki ± 0%   -2.05% (p=0.000 n=10)
+InspectHybrid-12          13.80Ki ± 0%   13.30Ki ± 0%   -3.62% (p=0.000 n=10)
+InspectMetadataHeavy-12   819.2Ki ± 0%   563.0Ki ± 0%  -31.27% (p=0.000 n=10)
+geomean                   27.60Ki        24.39Ki       -11.61%
 
                         │ baseline.txt │              raw.txt               │
                         │  allocs/op   │  allocs/op   vs base               │
 InspectV1-12                63.00 ± 0%    62.00 ± 0%  -1.59% (p=0.000 n=10)
-InspectV2-12                134.0 ± 0%    133.0 ± 0%  -0.75% (p=0.000 n=10)
-InspectHybrid-12            178.0 ± 0%    176.0 ± 0%  -1.12% (p=0.000 n=10)
+InspectV2-12                139.0 ± 0%    138.0 ± 0%  -0.72% (p=0.000 n=10)
+InspectHybrid-12            183.0 ± 0%    181.0 ± 0%  -1.09% (p=0.000 n=10)
 InspectMetadataHeavy-12    14.93k ± 0%   13.91k ± 0%  -6.86% (p=0.000 n=10)
-geomean                     387.0         376.9       -2.61%
+geomean                     393.3         383.1       -2.60%
