@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math"
 	"strconv"
 )
 
@@ -435,7 +436,7 @@ func parseCanonicalString(data []byte, start int) ([]byte, int, error) {
 		return nil, 0, invalidMetainfo("non-canonical bencode string length")
 	}
 	length, err := strconv.ParseUint(string(digits), 10, 63)
-	if err != nil || length > uint64(len(data)-colon-1) {
+	if err != nil || length > uint64(math.MaxInt) || length > uint64(len(data)-colon-1) {
 		return nil, 0, invalidMetainfo("invalid bencode string length")
 	}
 	end := colon + 1 + int(length)

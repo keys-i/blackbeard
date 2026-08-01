@@ -208,6 +208,7 @@ func TestCanonicalBencodePreflight(t *testing.T) {
 		{"leading integer plus", []byte("d4:infod1:ai+1eee")},
 		{"negative zero", []byte("d4:infod1:ai-0eee")},
 		{"leading string zero", []byte("d4:infod1:a00:ee")},
+		{"unrepresentable string length", []byte("d4:info9223372036854775807:e")},
 		{"scalar info", []byte("d4:info1:xe")},
 		{"deep", append([]byte("d4:info"), append(deep, 'e')...)},
 	}
