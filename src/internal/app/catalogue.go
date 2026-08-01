@@ -100,33 +100,18 @@ func syncAcademicCatalogue(ctx context.Context, deps catalogueDeps) (result sync
 		return result, err
 	}
 
-	initialized, err := catalogueExists(paths.index)
+	store, err := index.Open(paths.index)
 	if err != nil {
 		return result, err
 	}
-	var store *index.Store
-	var existing []domain.Record
-	created := false
 	defer func() {
-		if store == nil {
-			return
-		}
 		err = errors.Join(err, store.Close())
-		if created && err != nil {
-			err = errors.Join(err, wrapCleanup("remove incomplete catalogue index", os.RemoveAll(paths.index)))
-		}
 	}()
-	if initialized {
-		store, err = index.Open(paths.index)
-		if err != nil {
-			return result, err
-		}
-		readCtx, cancelRead := context.WithTimeout(ctx, rebuildTimeout)
-		existing, err = store.Records(readCtx)
-		cancelRead()
-		if err != nil {
-			return result, fmt.Errorf("read current catalogue: %w", err)
-		}
+	readCtx, cancelRead := context.WithTimeout(ctx, rebuildTimeout)
+	existing, err := store.Records(readCtx)
+	cancelRead()
+	if err != nil && !errors.Is(err, index.ErrNotInitialized) {
+		return result, fmt.Errorf("read current catalogue: %w", err)
 	}
 
 	syncer, err := deps.newAcademic(paths.academic)
@@ -155,14 +140,6 @@ func syncAcademicCatalogue(ctx context.Context, deps catalogueDeps) (result sync
 		}
 		aggregate = append(aggregate, record)
 	}
-	if store == nil {
-		created = true
-		store, err = index.Open(paths.index)
-		if err != nil {
-			return result, errors.Join(err, wrapCleanup("remove incomplete catalogue index", os.RemoveAll(paths.index)))
-		}
-	}
-
 	rebuildCtx, cancelRebuild := context.WithTimeout(ctx, rebuildTimeout)
 	err = store.Rebuild(rebuildCtx, aggregate)
 	cancelRebuild()
@@ -187,15 +164,11 @@ func searchOffline(ctx context.Context, deps catalogueDeps, ast query.AST, limit
 		}
 		return nil, err
 	}
-	initialized, err := catalogueExists(paths.index)
-	if err != nil {
-		return nil, err
-	}
-	if !initialized {
-		return nil, errors.New("offline catalogue is not initialized; run `blackbeard providers sync`")
-	}
 	store, err := index.Open(paths.index)
 	if err != nil {
+		if errors.Is(err, index.ErrNotInitialized) {
+			return nil, errors.New("offline catalogue is not initialized; run `blackbeard providers sync`")
+		}
 		return nil, err
 	}
 	defer func() { err = errors.Join(err, store.Close()) }()
@@ -204,6 +177,9 @@ func searchOffline(ctx context.Context, deps catalogueDeps, ast query.AST, limit
 	hits, err := store.Search(searchCtx, ast, limit)
 	cancel()
 	if err != nil {
+		if errors.Is(err, index.ErrNotInitialized) {
+			return nil, errors.New("offline catalogue is not initialized; run `blackbeard providers sync`")
+		}
 		return nil, err
 	}
 	results = make([]searchResult, len(hits))
@@ -251,24 +227,6 @@ func secureCacheDirectories(base string, create bool, names ...string) error {
 		return fmt.Errorf("close cache directory: %w", err)
 	}
 	return nil
-}
-
-func catalogueExists(path string) (bool, error) {
-	for _, candidate := range []string{path, path + ".previous"} {
-		if _, err := os.Stat(candidate); err == nil {
-			return true, nil
-		} else if !errors.Is(err, os.ErrNotExist) {
-			return false, fmt.Errorf("inspect offline catalogue: %w", err)
-		}
-	}
-	return false, nil
-}
-
-func wrapCleanup(message string, err error) error {
-	if err == nil {
-		return nil
-	}
-	return fmt.Errorf("%s: %w", message, err)
 }
 
 func writeOfflineSearch(stdout *output.Encoder, warningDst io.Writer, format string, ast query.AST, results []searchResult) error {
