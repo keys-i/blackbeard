@@ -42,8 +42,8 @@ type VerifyV1 func(context.Context, []byte) (string, error)
 type fetchFunc func(context.Context, string, provider.FetchOptions) (provider.Response, error)
 
 type cacheStore interface {
-	Load() (cacheState, error)
-	Save(cacheState) error
+	Load(context.Context) (cacheState, error)
+	Save(context.Context, cacheState) error
 }
 
 // Catalog synchronises and resolves Academic Torrents records.
@@ -51,6 +51,12 @@ type Catalog struct {
 	fetch  fetchFunc
 	cache  cacheStore
 	verify VerifyV1
+}
+
+type syncOnly struct{ catalog *Catalog }
+
+func (s syncOnly) Sync(ctx context.Context) (provider.CatalogSnapshot, error) {
+	return s.catalog.Sync(ctx)
 }
 
 var (
@@ -61,6 +67,28 @@ var (
 // New constructs the provider. cacheDir must already be a trusted application
 // cache directory.
 func New(cacheDir string, verify VerifyV1) (*Catalog, error) {
+	if verify == nil {
+		return nil, errors.New("academic torrents verifier must not be nil")
+	}
+	catalog, err := newSyncer(cacheDir)
+	if err != nil {
+		return nil, err
+	}
+	catalog.verify = verify
+	return catalog, nil
+}
+
+// NewSyncer constructs only the catalogue-sync capability. Metainfo resolution
+// remains unavailable until a bounded independent verifier is supplied to New.
+func NewSyncer(cacheDir string) (provider.CatalogSyncer, error) {
+	catalog, err := newSyncer(cacheDir)
+	if err != nil {
+		return nil, err
+	}
+	return syncOnly{catalog: catalog}, nil
+}
+
+func newSyncer(cacheDir string) (*Catalog, error) {
 	if cacheDir == "" {
 		return nil, errors.New("academic torrents cache directory is empty")
 	}
@@ -68,14 +96,26 @@ func New(cacheDir string, verify VerifyV1) (*Catalog, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create academic torrents client: %w", err)
 	}
-	return newCatalog(client.Fetch, diskCache{dir: cacheDir}, verify)
+	return newSyncCatalog(client.Fetch, diskCache{dir: cacheDir})
 }
 
 func newCatalog(fetch fetchFunc, cache cacheStore, verify VerifyV1) (*Catalog, error) {
-	if fetch == nil || cache == nil || verify == nil {
+	if verify == nil {
 		return nil, errors.New("academic torrents dependencies must not be nil")
 	}
-	return &Catalog{fetch: fetch, cache: cache, verify: verify}, nil
+	catalog, err := newSyncCatalog(fetch, cache)
+	if err != nil {
+		return nil, err
+	}
+	catalog.verify = verify
+	return catalog, nil
+}
+
+func newSyncCatalog(fetch fetchFunc, cache cacheStore) (*Catalog, error) {
+	if fetch == nil || cache == nil {
+		return nil, errors.New("academic torrents dependencies must not be nil")
+	}
+	return &Catalog{fetch: fetch, cache: cache}, nil
 }
 
 // Sync refreshes the documented database.xml catalogue. A 304 returns the
@@ -84,7 +124,7 @@ func (c *Catalog) Sync(ctx context.Context) (provider.CatalogSnapshot, error) {
 	if err := requestContext(ctx); err != nil {
 		return provider.CatalogSnapshot{}, err
 	}
-	state, loadErr := c.cache.Load()
+	state, loadErr := c.cache.Load(ctx)
 	if loadErr != nil {
 		state = cacheState{}
 	}
@@ -113,6 +153,11 @@ func (c *Catalog) Sync(ctx context.Context) (provider.CatalogSnapshot, error) {
 	}
 	records := make([]domain.Record, 0, len(items))
 	for i, item := range items {
+		if i&1023 == 0 {
+			if err := ctx.Err(); err != nil {
+				return provider.CatalogSnapshot{}, err
+			}
+		}
 		record, err := item.record()
 		if err != nil {
 			return provider.CatalogSnapshot{}, fmt.Errorf("normalise academic torrents item %d: %w", i+1, err)
@@ -125,8 +170,11 @@ func (c *Catalog) Sync(ctx context.Context) (provider.CatalogSnapshot, error) {
 		LastModified:  response.LastModified,
 		Records:       records,
 	}
-	if err := c.cache.Save(state); err != nil {
+	if err := c.cache.Save(ctx, state); err != nil {
 		return provider.CatalogSnapshot{}, fmt.Errorf("save academic torrents cache: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
+		return provider.CatalogSnapshot{}, err
 	}
 	return provider.CatalogSnapshot{Records: records}, nil
 }
@@ -136,6 +184,9 @@ func (c *Catalog) Sync(ctx context.Context) (provider.CatalogSnapshot, error) {
 func (c *Catalog) Resolve(ctx context.Context, record domain.Record) (provider.Source, error) {
 	if err := requestContext(ctx); err != nil {
 		return provider.Source{}, err
+	}
+	if c.verify == nil {
+		return provider.Source{}, errors.New("academic torrents metainfo resolution is unavailable without a verifier")
 	}
 	if record.Provider != "academic_torrents" || record.SourceID != record.InfoHashV1 || !validInfoHash(record.InfoHashV1) {
 		return provider.Source{}, errors.New("academic torrents record identity is invalid")
@@ -202,7 +253,13 @@ type cacheState struct {
 
 type diskCache struct{ dir string }
 
-func (c diskCache) Load() (cacheState, error) {
+func (c diskCache) Load(ctx context.Context) (cacheState, error) {
+	if ctx == nil {
+		return cacheState{}, errors.New("load academic torrents cache: nil context")
+	}
+	if err := ctx.Err(); err != nil {
+		return cacheState{}, err
+	}
 	root, err := os.OpenRoot(c.dir)
 	if err != nil {
 		return cacheState{}, fmt.Errorf("open cache directory: %w", err)
@@ -216,7 +273,7 @@ func (c diskCache) Load() (cacheState, error) {
 		return cacheState{}, fmt.Errorf("open cache snapshot: %w", err)
 	}
 	defer func() { _ = file.Close() }()
-	data, err := io.ReadAll(io.LimitReader(file, provider.MaxResponseBody+1))
+	data, err := io.ReadAll(io.LimitReader(&contextReader{ctx: ctx, r: file}, provider.MaxResponseBody+1))
 	if err != nil {
 		return cacheState{}, fmt.Errorf("read cache snapshot: %w", err)
 	}
@@ -236,6 +293,11 @@ func (c diskCache) Load() (cacheState, error) {
 		return cacheState{}, errors.New("academic torrents cache schema or record count is invalid")
 	}
 	for i := range state.Records {
+		if i&1023 == 0 {
+			if err := ctx.Err(); err != nil {
+				return cacheState{}, err
+			}
+		}
 		state.Records[i], err = normalizeCachedRecord(state.Records[i])
 		if err != nil {
 			return cacheState{}, fmt.Errorf("validate cached record %d: %w", i+1, err)
@@ -259,7 +321,13 @@ func normalizeCachedRecord(record domain.Record) (domain.Record, error) {
 	return domain.NormalizeRecord(record)
 }
 
-func (c diskCache) Save(state cacheState) error {
+func (c diskCache) Save(ctx context.Context, state cacheState) error {
+	if ctx == nil {
+		return errors.New("save academic torrents cache: nil context")
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	data, err := json.Marshal(state)
 	if err != nil {
 		return fmt.Errorf("encode cache snapshot: %w", err)
@@ -267,8 +335,14 @@ func (c diskCache) Save(state cacheState) error {
 	if len(data)+1 > int(provider.MaxResponseBody) {
 		return errors.New("academic torrents cache exceeds 32 MiB")
 	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	data = append(data, '\n')
-	return provider.ReplaceFile(c.dir, cacheFilename, data, 0o600)
+	if err := provider.ReplaceFile(c.dir, cacheFilename, data, 0o600); err != nil {
+		return err
+	}
+	return ctx.Err()
 }
 
 func ensureJSONEOF(dec *json.Decoder) error {

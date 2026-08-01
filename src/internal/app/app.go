@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"strconv"
 	"strings"
 
+	"github.com/keys-i/blackbeard/src/internal/index"
 	"github.com/keys-i/blackbeard/src/internal/output"
 	"github.com/keys-i/blackbeard/src/internal/query"
 	"github.com/spf13/cobra"
@@ -21,9 +23,17 @@ const (
 )
 
 // Run executes Blackbeard without owning process exit or its standard streams.
-func Run(ctx context.Context, args []string, _ io.Reader, stdout, stderr io.Writer, version string) error {
+func Run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer, version string) error {
+	return run(ctx, args, stdin, stdout, stderr, version, productionCatalogueDeps())
+}
+
+func run(ctx context.Context, args []string, _ io.Reader, stdout, stderr io.Writer, version string, deps catalogueDeps) error {
 	var format string
 	var explain bool
+	var offline bool
+	var providerFlags []string
+	var sortFlag string
+	var limitFlag int
 	var showVersion bool
 	var helpErr error
 
@@ -79,8 +89,9 @@ func Run(ctx context.Context, args []string, _ io.Reader, stdout, stderr io.Writ
 	})
 
 	search := &cobra.Command{
-		Use:   "search <query>",
+		Use:   "search [flags] <query>",
 		Short: "Search configured open catalogues",
+		Long:  "Search configured open catalogues. Put flags before the query; terms such as -server are query exclusions.",
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return usageError(errors.New("search needs a query"))
@@ -92,20 +103,119 @@ func Run(ctx context.Context, args []string, _ io.Reader, stdout, stderr io.Writ
 			if err != nil {
 				return usageError(fmt.Errorf("parse query: %w", err))
 			}
-			if !explain {
-				return errors.New("catalogue execution is not available in this build; use search --explain")
+			if err := applySearchOverrides(&ast, providerFlags, sortFlag, limitFlag,
+				cmd.Flags().Changed("provider"), cmd.Flags().Changed("sort"), cmd.Flags().Changed("limit")); err != nil {
+				return usageError(err)
 			}
-			return writeExplanation(cmd.OutOrStdout(), format, ast)
+			if explain && offline {
+				return usageError(errors.New("search --explain and --offline cannot be combined"))
+			}
+			if explain {
+				return writeExplanation(cmd.OutOrStdout(), format, ast)
+			}
+			if !offline {
+				return errors.New("live catalogue search is not available; use search --offline or --explain")
+			}
+			limit := index.DefaultLimit
+			if ast.Limit != nil {
+				limit = *ast.Limit
+			}
+			results, err := searchOffline(cmd.Context(), deps, ast, limit)
+			if err != nil {
+				return err
+			}
+			return writeOfflineSearch(output.NewEncoder(cmd.OutOrStdout()), cmd.ErrOrStderr(), format, ast, results)
 		},
 	}
 	search.Flags().BoolVar(&explain, "explain", false, "show the deterministic query interpretation")
+	search.Flags().BoolVar(&offline, "offline", false, "search the cached catalogue without network access")
+	search.Flags().StringArrayVar(&providerFlags, "provider", nil, "limit results to a configured provider (repeatable)")
+	search.Flags().StringVar(&sortFlag, "sort", "", "result order: relevance, newest, oldest, smallest, largest, title, or title-desc")
+	search.Flags().IntVar(&limitFlag, "limit", 0, "maximum results (1..1000)")
 	search.Flags().SetInterspersed(false)
 	root.AddCommand(search)
+
+	providersCommand := &cobra.Command{
+		Use:   "providers",
+		Short: "Manage configured catalogues",
+		Args:  noArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return cmd.Help()
+		},
+	}
+	providersCommand.AddCommand(&cobra.Command{
+		Use:   "sync",
+		Short: "Refresh offline catalogues",
+		Args:  noArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			result, err := syncAcademicCatalogue(cmd.Context(), deps)
+			if err != nil {
+				return err
+			}
+			return writeSyncResult(output.NewEncoder(cmd.OutOrStdout()), format, result)
+		},
+	})
+	root.AddCommand(providersCommand)
 
 	if err := root.ExecuteContext(ctx); err != nil {
 		return err
 	}
 	return helpErr
+}
+
+func applySearchOverrides(ast *query.AST, providers []string, sortValue string, limit int, providersSet, sortSet, limitSet bool) error {
+	if providersSet {
+		ast.Providers.Allow = ast.Providers.Allow[:0]
+		ast.Providers.Deny = ast.Providers.Deny[:0]
+		for _, value := range providers {
+			if !validFlagToken(value) {
+				return fmt.Errorf("unknown provider %q", value)
+			}
+			parsed, err := query.Parse("provider:" + value)
+			if err != nil || len(parsed.Providers.Allow) != 1 || len(parsed.Required) != 0 || len(parsed.Warnings) != 0 {
+				return fmt.Errorf("unknown provider %q", value)
+			}
+			provider := parsed.Providers.Allow[0].Value
+			if !containsProvider(ast.Providers.Allow, provider) {
+				ast.Providers.Allow = append(ast.Providers.Allow, query.ValueClause{Value: provider})
+			}
+		}
+	}
+	if sortSet {
+		if !validFlagToken(sortValue) {
+			return fmt.Errorf("unknown ordering %q", sortValue)
+		}
+		parsed, err := query.Parse("sort:" + sortValue)
+		if err != nil || len(parsed.Order) != 1 || len(parsed.Required) != 0 || len(parsed.Warnings) != 0 {
+			return fmt.Errorf("unknown ordering %q", sortValue)
+		}
+		order := parsed.Order[0]
+		ast.Order = []query.OrderClause{{Field: order.Field, Direction: order.Direction}}
+	}
+	if limitSet {
+		if limit < 1 || limit > query.MaxLimit {
+			return fmt.Errorf("limit must be between 1 and %d", query.MaxLimit)
+		}
+		ast.Limit = &limit
+	}
+	return nil
+}
+
+func validFlagToken(value string) bool {
+	if value == "" {
+		return false
+	}
+	for i := range len(value) {
+		c := value[i]
+		if (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '-' && c != '_' {
+			return false
+		}
+	}
+	return true
+}
+
+func containsProvider(values []query.ValueClause, provider string) bool {
+	return slices.ContainsFunc(values, func(value query.ValueClause) bool { return value.Value == provider })
 }
 
 func validateOutputFormat(format string) error {
@@ -303,6 +413,9 @@ func noArgs(cmd *cobra.Command, args []string) error {
 
 // ExitCode maps returned errors to Blackbeard's documented process status.
 func ExitCode(err error) int {
+	if errors.Is(err, context.Canceled) {
+		return 130
+	}
 	var coded codedError
 	if errors.As(err, &coded) {
 		return coded.code

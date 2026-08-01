@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -137,6 +138,49 @@ func TestTransitiveInfohashAndProviderScopedFallbackDedupe(t *testing.T) {
 	}
 	if hits[0].Record.Provider != "academic_torrents" || len(hits[0].Sources) != 3 {
 		t.Fatalf("filtered representative/provenance = %#v", hits[0])
+	}
+}
+
+func TestRecordsReturnsEachProviderSourceOnce(t *testing.T) {
+	t.Parallel()
+
+	shared := strings.Repeat("7", 40)
+	want := []domain.Record{
+		record("academic_torrents", "academic", "Shared academic", withHashes(shared, "")),
+		record("debian", "debian", "Debian image"),
+		record("internet_archive", "archive", "Shared archive", withHashes(shared, "")),
+	}
+	store := newTestStore(t, want)
+	got, err := store.Records(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("Records() = %#v, want %#v", got, want)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := store.Records(ctx); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled Records() error = %v", err)
+	}
+}
+
+func TestRecordsPaginatesAndObservesMidReadCancellation(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t, benchmarkRecords(batchSize+89))
+	records, err := store.Records(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(records) != batchSize+89 {
+		t.Fatalf("Records() count = %d, want %d", len(records), batchSize+89)
+	}
+
+	ctx := newStepCancelContext(context.Background(), 1)
+	if _, err := store.Records(ctx); !errors.Is(err, context.Canceled) {
+		t.Fatalf("mid-read cancellation error = %v", err)
 	}
 }
 
@@ -692,4 +736,32 @@ func sourceIDs(hits []Hit) []string {
 		ids[i] = hit.Record.SourceID
 	}
 	return ids
+}
+
+type stepCancelContext struct {
+	context.Context
+	done      chan struct{}
+	remaining int
+	mu        sync.Mutex
+}
+
+func newStepCancelContext(parent context.Context, remaining int) *stepCancelContext {
+	return &stepCancelContext{Context: parent, done: make(chan struct{}), remaining: remaining}
+}
+
+func (c *stepCancelContext) Done() <-chan struct{} { return c.done }
+
+func (c *stepCancelContext) Err() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.remaining > 0 {
+		c.remaining--
+		return nil
+	}
+	select {
+	case <-c.done:
+	default:
+		close(c.done)
+	}
+	return context.Canceled
 }

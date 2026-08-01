@@ -15,9 +15,10 @@ search across open catalogues and direct magnet or `.torrent` sources.
 
 ## Status
 
-Blackbeard is under active development. The deterministic query parser and
-schema-versioned output are implemented; provider search and torrent transfer
-remain unavailable until their fixture, security, and benchmark gates pass.
+Blackbeard is under active development. Deterministic query parsing, Academic
+Torrents catalogue sync, and offline schema-versioned search are implemented.
+Live multi-provider search and torrent transfer remain unavailable until their
+fixture, security, and benchmark gates pass.
 
 ## Build
 
@@ -36,6 +37,9 @@ go build -o build/blackbeard ./cmd/blackbeard
 ./build/blackbeard version
 ./build/blackbeard search --explain \
   "arm64 Linux image under 2 GiB newest first"
+./build/blackbeard providers sync
+./build/blackbeard search --offline \
+  "climate observations from academic"
 ./build/blackbeard --output json search --explain \
   '"public domain" animation under 4 GiB from archive'
 ```
