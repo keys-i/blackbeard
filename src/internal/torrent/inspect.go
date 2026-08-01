@@ -699,7 +699,7 @@ func validateDistinctPaths(files []File) error {
 		parts := strings.Split(file.Path, "/")
 		folded := make([]string, len(parts))
 		for i, part := range parts {
-			folded[i] = norm.NFC.String(fold.String(part))
+			folded[i] = portablePathKey(fold, part)
 		}
 		full := strings.Join(folded, "/")
 		if _, exists := paths[full]; exists {
@@ -718,6 +718,13 @@ func validateDistinctPaths(files []File) error {
 		paths[full] = struct{}{}
 	}
 	return nil
+}
+
+func portablePathKey(fold cases.Caser, value string) string {
+	if strings.IndexFunc(value, func(r rune) bool { return r >= utf8.RuneSelf }) < 0 {
+		return strings.ToLower(value)
+	}
+	return norm.NFC.String(fold.String(value))
 }
 
 func cleanURLs(values []string, limit int, tracker bool) ([]string, error) {
