@@ -353,6 +353,9 @@ func inspectMetainfo(ctx context.Context, raw []byte, kind SourceKind) (Inspecti
 	if !hasV1 && !hasV2 {
 		return Inspection{}, invalidMetainfo("info dictionary has neither v1 nor v2 metadata")
 	}
+	if hasV2 && !preflight.pieceLayers {
+		return Inspection{}, invalidMetainfo("v2 metainfo requires a piece layers dictionary")
+	}
 	if hasV2 && (!preflight.shape.fileTree || info.PieceLength < 16<<10 || info.PieceLength > maxV2PieceLength || info.PieceLength&(info.PieceLength-1) != 0) {
 		return Inspection{}, invalidMetainfo("v2 piece length must be a power of two from 16 KiB through 16 MiB")
 	}

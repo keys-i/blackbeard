@@ -114,7 +114,7 @@ func TestInspectV2AndHybridMetainfo(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			raw := fixtureV1(t, test.info, nil)
+			raw := fixtureV2(t, test.info)
 			got, err := inspectMetainfo(context.Background(), raw, SourceHTTPS)
 			if err != nil {
 				t.Fatal(err)
@@ -126,16 +126,36 @@ func TestInspectV2AndHybridMetainfo(t *testing.T) {
 	}
 }
 
-func TestInspectV2AllowsExtensionProperties(t *testing.T) {
+func TestInspectV2RequiresPieceLayersDictionary(t *testing.T) {
 	root := strings.Repeat("r", 32)
-	raw := fixtureV1(t, metainfo.Info{
+	info := metainfo.Info{
 		PieceLength: 16 << 10,
 		Name:        "bundle",
 		MetaVersion: 2,
 		FileTree: metainfo.FileTree{Dir: map[string]metainfo.FileTree{
 			"payload.bin": {File: metainfo.FileTreeFile{Length: 1, PiecesRoot: root}},
 		}},
-	}, nil)
+	}
+	raw := fixtureV1(t, info, nil)
+	if _, err := inspectMetainfo(context.Background(), raw, SourceFile); !errors.Is(err, ErrInvalidMetainfo) {
+		t.Fatalf("missing piece layers: got %v, want ErrInvalidMetainfo", err)
+	}
+	wrongType := append(raw[:len(raw)-1:len(raw)-1], []byte("12:piece layerslee")...)
+	if _, err := inspectMetainfo(context.Background(), wrongType, SourceFile); !errors.Is(err, ErrInvalidMetainfo) {
+		t.Fatalf("list piece layers: got %v, want ErrInvalidMetainfo", err)
+	}
+}
+
+func TestInspectV2AllowsExtensionProperties(t *testing.T) {
+	root := strings.Repeat("r", 32)
+	raw := fixtureV2(t, metainfo.Info{
+		PieceLength: 16 << 10,
+		Name:        "bundle",
+		MetaVersion: 2,
+		FileTree: metainfo.FileTree{Dir: map[string]metainfo.FileTree{
+			"payload.bin": {File: metainfo.FileTreeFile{Length: 1, PiecesRoot: root}},
+		}},
+	})
 	raw = bytes.Replace(raw, []byte("d6:length"), []byte("d4:attr1:x6:length"), 1)
 	if _, err := inspectMetainfo(context.Background(), raw, SourceFile); err != nil {
 		t.Fatal(err)
@@ -185,7 +205,7 @@ func TestV2PiecesRootRegressionDoesNotPanic(t *testing.T) {
 					"file": {File: metainfo.FileTreeFile{Length: test.length, PiecesRoot: test.root}},
 				}},
 			}
-			_, err := inspectMetainfo(context.Background(), fixtureV1(t, info, nil), SourceFile)
+			_, err := inspectMetainfo(context.Background(), fixtureV2(t, info), SourceFile)
 			if !errors.Is(err, ErrInvalidMetainfo) {
 				t.Fatalf("got %v, want ErrInvalidMetainfo", err)
 			}
@@ -304,14 +324,14 @@ func TestHybridRequiresV2PieceAlignment(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			raw := fixtureV1(t, metainfo.Info{
+			raw := fixtureV2(t, metainfo.Info{
 				PieceLength: 16 << 10,
 				Pieces:      make([]byte, test.pieces*20),
 				Name:        "bundle",
 				Files:       test.files,
 				MetaVersion: 2,
 				FileTree:    tree,
-			}, nil)
+			})
 			_, err := inspectMetainfo(context.Background(), raw, SourceFile)
 			if test.valid && err != nil {
 				t.Fatal(err)
@@ -503,6 +523,12 @@ func fixtureV1(t testing.TB, info metainfo.Info, mutate func(*metainfo.MetaInfo)
 	return raw
 }
 
+func fixtureV2(t testing.TB, info metainfo.Info) []byte {
+	t.Helper()
+	raw := fixtureV1(t, info, nil)
+	return append(raw[:len(raw)-1:len(raw)-1], []byte("12:piece layersdee")...)
+}
+
 func FuzzPreflightBencode(f *testing.F) {
 	f.Add([]byte("d4:infod4:name4:file6:lengthi0e12:piece lengthi16384e6:pieces0:ee"))
 	f.Add([]byte("d4:info5:shorte"))
@@ -567,20 +593,20 @@ func BenchmarkInspectV1(b *testing.B) {
 
 func BenchmarkInspectV2(b *testing.B) {
 	root := strings.Repeat("r", 32)
-	raw := fixtureV1(b, metainfo.Info{
+	raw := fixtureV2(b, metainfo.Info{
 		PieceLength: 16 << 10,
 		Name:        "bundle",
 		MetaVersion: 2,
 		FileTree: metainfo.FileTree{Dir: map[string]metainfo.FileTree{
 			"payload.bin": {File: metainfo.FileTreeFile{Length: 1, PiecesRoot: root}},
 		}},
-	}, nil)
+	})
 	benchmarkMetainfo(b, raw)
 }
 
 func BenchmarkInspectHybrid(b *testing.B) {
 	root := strings.Repeat("r", 32)
-	raw := fixtureV1(b, metainfo.Info{
+	raw := fixtureV2(b, metainfo.Info{
 		PieceLength: 16 << 10,
 		Pieces:      make([]byte, 20),
 		Name:        "bundle",
@@ -589,7 +615,7 @@ func BenchmarkInspectHybrid(b *testing.B) {
 		FileTree: metainfo.FileTree{Dir: map[string]metainfo.FileTree{
 			"payload.bin": {File: metainfo.FileTreeFile{Length: 1, PiecesRoot: root}},
 		}},
-	}, nil)
+	})
 	benchmarkMetainfo(b, raw)
 }
 

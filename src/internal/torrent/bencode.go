@@ -24,9 +24,10 @@ type infoShape struct {
 }
 
 type preflightResult struct {
-	infoStart int
-	infoEnd   int
-	shape     infoShape
+	infoStart   int
+	infoEnd     int
+	pieceLayers bool
+	shape       infoShape
 }
 
 type bencodeContext uint8
@@ -299,8 +300,15 @@ func (p *bencodeParser) validateField(parent *bencodeFrame, value bencodeValue) 
 
 	switch parent.context {
 	case contextTop:
-		if bytes.Equal(parent.key, []byte("info")) && value.kind != 'd' {
-			return invalidMetainfo("info must be a dictionary")
+		if bytes.Equal(parent.key, []byte("info")) {
+			if value.kind != 'd' {
+				return invalidMetainfo("info must be a dictionary")
+			}
+		} else if bytes.Equal(parent.key, []byte("piece layers")) {
+			if value.kind != 'd' {
+				return invalidMetainfo("piece layers must be a dictionary")
+			}
+			p.result.pieceLayers = true
 		}
 	case contextInfo:
 		name := string(parent.key)
