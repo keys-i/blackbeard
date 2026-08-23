@@ -6,7 +6,7 @@ require (
 	github.com/anacrolix/torrent v1.61.0
 	github.com/blevesearch/bleve/v2 v2.6.0
 	github.com/spf13/cobra v1.10.2
-	golang.org/x/text v0.40.0
+	golang.org/x/text v0.41.0
 )
 
 require (
